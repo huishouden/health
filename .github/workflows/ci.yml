@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    # Release PRs (release-please, opened by github-actions[bot]) touch only these two files. GitHub
+    # holds runs for bot-opened PRs until someone approves them, and an unapproved run expires as a
+    # failure with no jobs; skipping them here means no run is created. The merge to main still runs
+    # everything. See pwa-kit templates/ci.yml.
+    paths-ignore: [CHANGELOG.md, package.json]
+  workflow_dispatch:
+    inputs:
+      staging-ref:
+        description: Deploy this branch, tag or SHA to staging (leave empty to deploy main to production)
+        type: string
+        default: ''
+
+concurrency:
+  # A manual staging deploy from main must not cancel main's production deploy.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.staging-ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pwa:
+    uses: huishouden/pwa-kit/.github/workflows/pwa.yml@v0
+    permissions:
+      contents: write # README screenshots, PR evidence branch, the hosting release asset
+      id-token: write
+      pull-requests: write # before/after comment on PRs
+    with:
+      base: /health/
+      site-url: https://huishouden-piekstra.web.app/health/
+      staging-ref: ${{ inputs.staging-ref }}
+
+  release:
+    uses: huishouden/pwa-kit/.github/workflows/release.yml@v0
+    permissions:
+      contents: write
+      pull-requests: write

@@ -1,0 +1,21 @@
+@import "tailwindcss";
+@import "@huishouden/pwa-kit/tailwind.css";
+
+/* The medicine list for the doctor prints on its own: no app bar, bottom bar or toasts. */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  hh-app-bar,
+  [data-bottom-nav],
+  [data-hh-bottom-nav] {
+    display: none !important;
+  }
+  html {
+    --hh-bottom-nav: 0px !important;
+  }
+  body {
+    background: white;
+    padding: 0 !important;
+  }
+}

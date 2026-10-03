@@ -1,0 +1,8 @@
+EXAMPLE PHARMACY
+Rx 0000000 Dr. Example
+Patient: Oma Ria
+Metformin 500 mg tablets
+Take 1 tablet by mouth twice daily with food
+Qty: 60 Refills: 5
+zq7 smudge
+May cause stomach upset
