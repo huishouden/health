@@ -71,9 +71,11 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
   };
   const scheduled = list.current.filter((m) => !m.asNeeded);
   const asNeeded = list.current.filter((m) => m.asNeeded);
+  // A table on paper and on wider screens; on a phone screen each medicine is a stacked block, so
+  // nothing runs off the side.
   const table = (meds: Med[]) => (
-    <table className="mt-2 w-full border-collapse text-left text-base">
-      <thead>
+    <table className="mt-2 w-full border-collapse text-left text-base phone:block">
+      <thead className="phone:sr-only">
         <tr className="border-b-2 border-stone-800 text-sm">
           <th className="py-1.5 pr-3 font-semibold">Medicine</th>
           <th className="py-1.5 pr-3 font-semibold">Dose</th>
@@ -82,28 +84,41 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
           <th className="py-1.5 font-semibold">Since</th>
         </tr>
       </thead>
-      <tbody>
-        {meds.map((m) => (
-          <tr key={m.id} className="break-inside-avoid border-b border-stone-200 align-top">
-            <td className="py-2 pr-3 font-medium">{medLabel(m)}</td>
-            <td className="py-2 pr-3">{doseText(m)}</td>
-            <td className="py-2 pr-3">
-              {scheduleText(m)}
-              {m.endDate ? `, until ${longDate(m.endDate, today)}` : ''}
-              {m.notes && <span className="block text-sm text-stone-600">{m.notes}</span>}
-            </td>
-            <td className="py-2 pr-3">{contactName(list.contacts, m.prescriberId)}</td>
-            <td className="py-2 whitespace-nowrap">{longDate(m.startDate, today)}</td>
-          </tr>
-        ))}
+      <tbody className="phone:block phone:border-t-2 phone:border-stone-800">
+        {meds.map((m) => {
+          const by = contactName(list.contacts, m.prescriberId);
+          return (
+            <tr key={m.id} className="break-inside-avoid border-b border-stone-200 align-top phone:block phone:py-3">
+              <td className="py-2 pr-3 font-medium phone:block phone:p-0 phone:text-lg">{medLabel(m)}</td>
+              <td className="py-2 pr-3 phone:block phone:p-0">{doseText(m)}</td>
+              <td className="py-2 pr-3 phone:block phone:p-0">
+                {scheduleText(m)}
+                {m.endDate ? `, until ${longDate(m.endDate, today)}` : ''}
+                {m.notes && <span className="block text-sm text-stone-600">{m.notes}</span>}
+              </td>
+              <td className={`py-2 pr-3 phone:p-0 ${by ? 'phone:block' : 'phone:hidden'}`}>
+                <span className="hidden phone:inline">Prescribed by </span>
+                {by}
+              </td>
+              <td className="py-2 whitespace-nowrap phone:block phone:p-0 phone:whitespace-normal phone:text-stone-600">
+                <span className="hidden phone:inline">Since </span>
+                {longDate(m.startDate, today)}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
   return (
-    <section aria-label={`Medicine list for ${person.name}`} className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none">
+    <section
+      aria-label={`Medicine list for ${person.name}`}
+      data-hh-print=""
+      className="min-w-0 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm [overflow-wrap:break-word] sm:p-6 print:text-black"
+    >
       <div className="mb-4 flex flex-wrap gap-2 print:hidden">
         <button type="button" className={primaryButton} onClick={() => window.print()}>
-          <Printer size={18} /> Print
+          <Printer size={18} /> Print or save PDF
         </button>
         <button type="button" className={secondaryButton} onClick={() => void share()}>
           <Share2 size={18} /> {copied ? 'Copied' : 'Share'}
@@ -151,7 +166,11 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
               <li key={c.id}>
                 {c.name}
                 {c.role ? ` (${c.role})` : ''}
-                {c.phone ? `, ${c.phone}` : ''}
+                {c.phone && (
+                  <>
+                    , <span className="whitespace-nowrap">{c.phone}</span>
+                  </>
+                )}
               </li>
             ))}
           </ul>
