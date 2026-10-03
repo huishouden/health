@@ -41,7 +41,7 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
           <section key={p.id} aria-label={`${p.name}'s medicines`} className={`${cardClass} p-5 sm:p-6`}>
             <div className="flex flex-wrap items-center gap-3">
               <Avatar person={p} people={people} size={44} />
-              <h2 className="min-w-0 flex-1 text-xl font-semibold text-stone-800">{p.name}</h2>
+              <h2 className="min-w-0 flex-1 text-xl font-semibold text-ink">{p.name}</h2>
               <button type="button" className={ghostButton} onClick={() => onPrint(p.id)}>
                 <Printer size={18} /> List for the doctor
               </button>
@@ -51,11 +51,11 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
                 </button>
               )}
             </div>
-            {p.allergies && <p className="mt-2 text-base text-stone-700">Allergies: {p.allergies}</p>}
+            {p.allergies && <p className="mt-2 text-base text-ink-soft">Allergies: {p.allergies}</p>}
             {current.length === 0 ? (
-              <p className="mt-3 text-base text-stone-600">No medicines yet.{editable ? ' Add one, or scan a pharmacy label to fill it in.' : ''}</p>
+              <p className="mt-3 text-base text-muted">No medicines yet.{editable ? ' Add one, or scan a pharmacy label to fill it in.' : ''}</p>
             ) : (
-              <ul className="mt-3 divide-y divide-stone-200">
+              <ul className="mt-3 divide-y divide-line">
                 {current.map((m) => (
                   <MedRow key={m.id} med={m} store={store} person={p} highlight={highlight === m.id} onEdit={editable ? () => onEdit(m) : undefined} onCount={() => onCount(m)} onOrdered={() => onOrdered(m)} />
                 ))}
@@ -63,12 +63,12 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
             )}
             {stopped.length > 0 && (
               <details className="mt-3">
-                <summary className="cursor-pointer select-none py-2 text-sm font-medium text-stone-600">Stopped ({stopped.length})</summary>
-                <ul className="divide-y divide-stone-200">
+                <summary className="cursor-pointer select-none py-2 text-sm font-medium text-muted">Stopped ({stopped.length})</summary>
+                <ul className="divide-y divide-line">
                   {stopped.map((m) => (
                     <li key={m.id} className="flex items-center gap-3 py-2">
-                      <span className="min-w-0 flex-1 text-base text-stone-700">
-                        {medLabel(m)} <span className="text-sm text-stone-600">stopped {longDate(m.endDate!, toYmd(now))}</span>
+                      <span className="min-w-0 flex-1 text-base text-ink-soft">
+                        {medLabel(m)} <span className="text-sm text-muted">stopped {longDate(m.endDate!, toYmd(now))}</span>
                       </span>
                       {editable && (
                         <button type="button" className={ghostButton} onClick={() => onEdit(m)}>
@@ -98,17 +98,17 @@ function MedRow({ med: m, store, person, highlight, onEdit, onCount, onOrdered }
   const upcoming = !isCurrent(m, toYmd(now)) && m.startDate > toYmd(now);
   const who = [contactName(contacts, m.prescriberId), contactName(contacts, m.pharmacyId)].filter(Boolean).join(' · ');
   return (
-    <li className={`py-3 ${highlight ? 'rounded-xl bg-forest-50 px-3' : ''}`}>
+    <li className={`py-3 ${highlight ? 'rounded-xl bg-tint px-3' : ''}`}>
       <div className="flex flex-wrap items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-lg font-medium text-stone-800">{medLabel(m)}</p>
-          <p className="text-base text-stone-700">{[doseText(m), scheduleText(m)].filter(Boolean).join(' · ')}</p>
-          <p className="text-sm text-stone-600">
+        <div className="min-w-40 flex-1">
+          <p className="text-lg font-medium text-ink">{medLabel(m)}</p>
+          <p className="text-base text-ink-soft">{[doseText(m), scheduleText(m)].filter(Boolean).join(' · ')}</p>
+          <p className="text-sm text-muted">
             {[upcoming ? `Starts ${longDate(m.startDate, toYmd(now))}` : '', m.endDate ? `Until ${longDate(m.endDate, toYmd(now))}` : '', who].filter(Boolean).join(' · ')}
           </p>
-          {m.notes && <p className="mt-1 text-sm text-stone-600">{m.notes}</p>}
+          {m.notes && <p className="mt-1 text-sm text-muted">{m.notes}</p>}
           {(left !== null || m.refills !== undefined) && (
-            <p className={`mt-1 text-sm ${due ? 'font-medium text-terracotta-dark' : 'text-stone-600'}`}>
+            <p className={`mt-1 text-sm ${due ? 'font-medium text-attention' : 'text-muted'}`}>
               {[
                 left !== null ? `${Math.round(left)}${m.doseUnit ? ` ${m.doseUnit}${Math.round(left) === 1 || m.doseUnit === 'ml' ? '' : 's'}` : ''} left` : '',
                 days !== null ? daysLeftText(days).toLowerCase() : '',

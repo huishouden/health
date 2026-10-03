@@ -7,6 +7,7 @@ import {
   expectHuishoudenFrame,
   expectInstallable,
   expectSecurityHeaders,
+  expectThemeConsistent,
 } from '@huishouden/pwa-kit/e2e';
 
 test('loads without runtime errors and shows the sample day', async ({ page }) => {
@@ -36,3 +37,5 @@ test('sends the security headers and leaves sign-in un-framed', ({ request }) =>
 test('the Sample data banner is one line on a phone', ({ page }) => expectCompactSampleBanner(page, './'));
 
 test('on a phone the sections are a bottom bar', ({ page }) => expectBottomNav(page, { path: './', labels: ['Today', 'Medicines', 'History', 'People'] }));
+
+test('follows the suite theme: dark on a dark device, readable', ({ page }) => expectThemeConsistent(page, { path: './' }));

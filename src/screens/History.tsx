@@ -48,7 +48,7 @@ export function History({ store, people, selected, onSelect, nameOf, onPrint, em
           <section key={p.id} aria-label={`${p.name}'s history`} className={`${cardClass} p-5 sm:p-6`}>
             <div className="flex flex-wrap items-center gap-3">
               <Avatar person={p} people={people} size={44} />
-              <h2 className="min-w-0 flex-1 text-xl font-semibold text-stone-800">{p.name}</h2>
+              <h2 className="min-w-0 flex-1 text-xl font-semibold text-ink">{p.name}</h2>
               <button type="button" className={ghostButton} onClick={() => onPrint(p.id)}>
                 <Printer size={18} /> List for the doctor
               </button>
@@ -61,22 +61,22 @@ export function History({ store, people, selected, onSelect, nameOf, onPrint, em
               <table className="mt-4 w-full text-left text-base">
                 <caption className={`${overline} pb-1 text-left`}>By medicine</caption>
                 <thead>
-                  <tr className="border-b border-stone-200 text-sm text-stone-600">
+                  <tr className="border-b border-line text-sm text-muted">
                     <th className="py-1.5 font-medium">Medicine</th>
-                    <th className="py-1.5 text-right font-medium">Given</th>
-                    <th className="py-1.5 text-right font-medium">Missed</th>
-                    <th className="py-1.5 text-right font-medium">Skipped</th>
-                    <th className="py-1.5 text-right font-medium">Rate</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">Given</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">Missed</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">Skipped</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">Rate</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stats.map(({ med, a }) => (
-                    <tr key={med.id} className="border-b border-stone-200 last:border-0">
-                      <td className="py-2 text-stone-800">{medLabel(med)}</td>
-                      <td className="py-2 text-right tabular-nums">{a.given}</td>
-                      <td className={`py-2 text-right tabular-nums ${a.missed ? 'font-medium text-terracotta-dark' : ''}`}>{a.missed}</td>
-                      <td className="py-2 text-right tabular-nums">{a.skipped}</td>
-                      <td className="py-2 text-right tabular-nums">{rateText(a)}</td>
+                    <tr key={med.id} className="border-b border-line last:border-0">
+                      <td className="py-2 text-ink">{medLabel(med)}</td>
+                      <td className="py-2 pl-2 text-right tabular-nums">{a.given}</td>
+                      <td className={`py-2 pl-2 text-right tabular-nums ${a.missed ? 'font-medium text-attention' : ''}`}>{a.missed}</td>
+                      <td className="py-2 pl-2 text-right tabular-nums">{a.skipped}</td>
+                      <td className="py-2 pl-2 text-right tabular-nums">{rateText(a)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -93,8 +93,8 @@ export function History({ store, people, selected, onSelect, nameOf, onPrint, em
 function Figure({ label, value, attention }: { label: string; value: string; attention?: boolean }) {
   return (
     <div>
-      <p className={`text-3xl font-semibold tabular-nums ${attention ? 'text-terracotta-dark' : 'text-stone-800'}`}>{value}</p>
-      <p className="text-sm text-stone-600">{label}</p>
+      <p className={`text-3xl font-semibold tabular-nums ${attention ? 'text-attention' : 'text-ink'}`}>{value}</p>
+      <p className="text-sm text-muted">{label}</p>
     </div>
   );
 }
@@ -121,19 +121,19 @@ function DoseLog({ meds, doses, now, nameOf }: { meds: Med[]; doses: Dose[]; now
   entries.sort((a, b) => b.at - a.at);
   const days = new Map<string, Entry[]>();
   for (const e of entries) days.set(toYmd(e.at), [...(days.get(toYmd(e.at)) ?? []), e]);
-  if (!entries.length) return <p className="mt-4 text-base text-stone-600">No doses in the last two weeks.</p>;
+  if (!entries.length) return <p className="mt-4 text-base text-muted">No doses in the last two weeks.</p>;
   return (
     <div className="mt-5">
       <h3 className={overline}>Last two weeks</h3>
       <div className="mt-1 space-y-3">
         {[...days.entries()].map(([day, list]) => (
           <div key={day}>
-            <p className="text-sm font-medium text-stone-700">{longDate(day, today)}</p>
+            <p className="text-sm font-medium text-ink-soft">{longDate(day, today)}</p>
             <ul className="mt-0.5 space-y-0.5">
               {list.map((e, i) => (
                 <li key={i} className="flex gap-2 text-base">
-                  <span className={`min-w-0 flex-1 ${e.tone === 'missed' ? 'text-terracotta-dark' : 'text-stone-800'}`}>
-                    {medLabel(e.med)} <span className={`text-sm ${e.tone === 'missed' ? 'font-medium' : 'text-stone-600'}`}>{e.text}</span>
+                  <span className={`min-w-0 flex-1 ${e.tone === 'missed' ? 'text-attention' : 'text-ink'}`}>
+                    {medLabel(e.med)} <span className={`text-sm ${e.tone === 'missed' ? 'font-medium' : 'text-muted'}`}>{e.text}</span>
                   </span>
                 </li>
               ))}

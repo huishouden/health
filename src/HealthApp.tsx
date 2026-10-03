@@ -119,23 +119,23 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
     <section className={`${cardClass} max-w-2xl p-6`}>
       {canAddPeople(role) ? (
         <>
-          <h2 className="text-xl font-semibold text-stone-800">Whose medicines does the household look after?</h2>
-          <p className="mt-2 text-lg text-stone-600">Add a person, then their medicines. Only the admins and the people you choose to look after them see them.</p>
+          <h2 className="text-xl font-semibold text-ink">Whose medicines does the household look after?</h2>
+          <p className="mt-2 text-lg text-muted">Add a person, then their medicines. Only the admins and the people you choose to look after them see them.</p>
           <button type="button" className={`${primaryButton} mt-4`} onClick={() => setPersonDialog({ person: null })}>
             Add a person
           </button>
         </>
       ) : role === 'kid' ? (
-        <p className="text-lg text-stone-600">Medicines are looked after by the grown-ups.</p>
+        <p className="text-lg text-muted">Medicines are looked after by the grown-ups.</p>
       ) : (
-        <p className="text-lg text-stone-600">Nobody's medicines are shared with you yet. An admin can add you as someone who looks after them.</p>
+        <p className="text-lg text-muted">Nobody's medicines are shared with you yet. An admin can add you as someone who looks after them.</p>
       )}
     </section>
   );
 
   const printPerson = printFor ? personOf(printFor) : undefined;
   let content: ReactNode;
-  if (!store.ready) content = <p className="p-2 text-lg text-stone-600">Loading medicines</p>;
+  if (!store.ready) content = <p className="p-2 text-lg text-muted">Loading medicines</p>;
   else if (printPerson) content = <PrintList list={listModel(printPerson, data.meds, data.doses, data.contacts, now)} now={now} onClose={() => print(null)} />;
   else if (tab === 'medicines')
     content = (
@@ -192,7 +192,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
 
   return (
     <Photos.Provider value={photos}>
-      <div className="flex min-h-dvh flex-col bg-cream font-sans text-stone-800 antialiased print:bg-white">
+      <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased print:bg-white">
         <div className="print:hidden">
           <Header tabs={TABS} tab={tab} onTab={(id) => (print(null), chooseTab(id as TabId))} user={user} onSignIn={onSignIn} onSignOut={onSignOut} signingIn={signingIn} />
         </div>
