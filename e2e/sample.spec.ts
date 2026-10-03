@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -73,10 +74,45 @@ test('the list for the doctor has allergies and every current medicine', async (
   const list = page.getByRole('region', { name: 'Medicine list for Oma Ria' });
   await expect(list).toContainText('Allergies: Penicillin');
   for (const m of ['Lisinopril 10 mg', 'Metformin 500 mg', 'Atorvastatin 20 mg', 'Paracetamol 500 mg']) await expect(list).toContainText(m);
-  await page.emulateMedia({ media: 'print' });
-  await expect(page.locator('hh-app-bar')).toBeHidden();
-  await expect(list.getByRole('button', { name: 'Print' })).toBeHidden();
 });
+
+test('the list for the doctor prints on its own and the PDF has the medicines', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, './?tab=history&person=demo-person-ria');
+  await page.getByRole('button', { name: 'List for the doctor' }).click();
+  const list = page.getByRole('region', { name: 'Medicine list for Oma Ria' });
+  await expect(list).toContainText('Metformin 500 mg');
+  await page.emulateMedia({ media: 'print' });
+  // The phone's bottom bar flags <html> with data-hh-bottom-nav; hiding that flag blanked the page.
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).display)).not.toBe('none');
+  await expect(list).toBeVisible();
+  expect((await list.boundingBox())?.height).toBeGreaterThan(400);
+  await expect(list.getByRole('columnheader', { name: 'Prescribed by' }).first()).toBeVisible();
+  await expect(page.locator('hh-app-bar')).toBeHidden();
+  await expect(page.locator('nav[data-hh-bottom-nav]')).toBeHidden();
+  await expect(page.getByText('Sample data')).toBeHidden();
+  await expect(list.getByRole('button', { name: 'Print' })).toBeHidden();
+  const pdf = await page.pdf({ format: 'A4' });
+  // A blank page is under 1 KB; the list with its fonts is about 100 KB.
+  expect(pdf.length).toBeGreaterThan(20_000);
+  const text = spawnSync('pdftotext', ['-', '-'], { input: pdf, encoding: 'utf8' });
+  if (!text.error) {
+    // Table cells wrap ("Metformin 500" over "mg"), so the medicine is matched by name.
+    for (const t of ['Medicines for Oma Ria', 'Allergies: Penicillin', 'Metformin', 'Lisinopril']) expect(text.stdout).toContain(t);
+  }
+});
+
+for (const width of [360, 390]) {
+  test(`the list for the doctor fits a ${width}px phone`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await open(page, './?print=demo-person-ria');
+    const list = page.getByRole('region', { name: 'Medicine list for Oma Ria' });
+    await expect(list).toContainText('Prescribed by Dr. Lena Hart');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    const box = await list.boundingBox();
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+  });
+}
 
 test('history counts missed doses per medicine', async ({ page }) => {
   await open(page, './?tab=history&person=demo-person-ria');

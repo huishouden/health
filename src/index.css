@@ -1,21 +1,12 @@
 @import "tailwindcss";
 @import "@huishouden/pwa-kit/tailwind.css";
 
-/* The medicine list for the doctor prints on its own: no app bar, bottom bar or toasts. */
+/* Phone screens only, never paper: the doctor's list stacks its table rows here but prints as a table. */
+@custom-variant phone (@media screen and (max-width: 639px));
+
+/* The kit hides the frame in print and prints the medicine list (data-hh-print) on its own. */
 @media print {
   @page {
     margin: 16mm;
-  }
-  hh-app-bar,
-  [data-bottom-nav],
-  [data-hh-bottom-nav] {
-    display: none !important;
-  }
-  html {
-    --hh-bottom-nav: 0px !important;
-  }
-  body {
-    background: white;
-    padding: 0 !important;
   }
 }
