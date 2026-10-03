@@ -76,31 +76,58 @@ test('the list for the doctor has allergies and every current medicine', async (
   for (const m of ['Lisinopril 10 mg', 'Metformin 500 mg', 'Atorvastatin 20 mg', 'Paracetamol 500 mg']) await expect(list).toContainText(m);
 });
 
-test('the list for the doctor prints on its own and the PDF has the medicines', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await open(page, './?tab=history&person=demo-person-ria');
-  await page.getByRole('button', { name: 'List for the doctor' }).click();
-  const list = page.getByRole('region', { name: 'Medicine list for Oma Ria' });
-  await expect(list).toContainText('Metformin 500 mg');
-  await page.emulateMedia({ media: 'print' });
-  // The phone's bottom bar flags <html> with data-hh-bottom-nav; hiding that flag blanked the page.
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).display)).not.toBe('none');
-  await expect(list).toBeVisible();
-  expect((await list.boundingBox())?.height).toBeGreaterThan(400);
-  await expect(list.getByRole('columnheader', { name: 'Prescribed by' }).first()).toBeVisible();
-  await expect(page.locator('hh-app-bar')).toBeHidden();
-  await expect(page.locator('nav[data-hh-bottom-nav]')).toBeHidden();
-  await expect(page.getByText('Sample data')).toBeHidden();
-  await expect(list.getByRole('button', { name: 'Print' })).toBeHidden();
-  const pdf = await page.pdf({ format: 'A4' });
-  // A blank page is under 1 KB; the list with its fonts is about 100 KB.
-  expect(pdf.length).toBeGreaterThan(20_000);
-  const text = spawnSync('pdftotext', ['-', '-'], { input: pdf, encoding: 'utf8' });
-  if (!text.error) {
-    // Table cells wrap ("Metformin 500" over "mg"), so the medicine is matched by name.
-    for (const t of ['Medicines for Oma Ria', 'Allergies: Penicillin', 'Metformin', 'Lisinopril']) expect(text.stdout).toContain(t);
-  }
-});
+// Printed in dark too: the paper must stay black on white. The kit drops .dark on beforeprint, but
+// emulateMedia does not fire it, so this also checks the print styles alone keep the list light.
+for (const scheme of ['light', 'dark'] as const) {
+  test(`the list for the doctor prints on its own and the PDF has the medicines (${scheme})`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript((mode) => localStorage.setItem('hh-theme', mode), scheme);
+    await open(page, './?tab=history&person=demo-person-ria');
+    await page.getByRole('button', { name: 'List for the doctor' }).click();
+    const list = page.getByRole('region', { name: 'Medicine list for Oma Ria' });
+    await expect(list).toContainText('Metformin 500 mg');
+    await page.emulateMedia({ media: 'print', colorScheme: scheme });
+    expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(scheme === 'dark');
+    // The phone's bottom bar flags <html> with data-hh-bottom-nav; hiding that flag blanked the page.
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).display)).not.toBe('none');
+    await expect(list).toBeVisible();
+    expect((await list.boundingBox())?.height).toBeGreaterThan(400);
+    await expect(list.getByRole('columnheader', { name: 'Prescribed by' }).first()).toBeVisible();
+    await expect(page.locator('hh-app-bar')).toBeHidden();
+    await expect(page.locator('nav[data-hh-bottom-nav]')).toBeHidden();
+    await expect(page.getByText('Sample data')).toBeHidden();
+    await expect(list.getByRole('button', { name: 'Print' })).toBeHidden();
+    // Dark ink on a white page: every text in the list, and the list's and page's backgrounds.
+    const paper = await list.evaluate((el) => {
+      const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
+      const lum = (css: string) => {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, 1, 1);
+        ctx.fillStyle = css;
+        ctx.fillRect(0, 0, 1, 1);
+        const [r, g, b] = Array.from(ctx.getImageData(0, 0, 1, 1).data).map((v) => v / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const texts = [...el.querySelectorAll('h1, h2, p, th, td, li, span')].filter((e) => e.checkVisibility() && e.textContent?.trim());
+      return {
+        background: Math.min(lum(getComputedStyle(el).backgroundColor), lum(getComputedStyle(document.body).backgroundColor)),
+        lightestText: Math.max(...texts.map((e) => lum(getComputedStyle(e).color))),
+      };
+    });
+    expect(paper.background, 'white paper').toBeGreaterThan(0.95);
+    // Under 0.18 is at least 4.5:1 on white.
+    expect(paper.lightestText, 'dark ink').toBeLessThan(0.18);
+    const pdf = await page.pdf({ format: 'A4' });
+    // A blank page is under 1 KB; the list with its fonts is about 100 KB.
+    expect(pdf.length).toBeGreaterThan(20_000);
+    const text = spawnSync('pdftotext', ['-', '-'], { input: pdf, encoding: 'utf8' });
+    if (!text.error) {
+      // Table cells wrap ("Metformin 500" over "mg"), so the medicine is matched by name.
+      for (const t of ['Medicines for Oma Ria', 'Allergies: Penicillin', 'Metformin', 'Lisinopril']) expect(text.stdout).toContain(t);
+    }
+  });
+}
 
 for (const width of [360, 390]) {
   test(`the list for the doctor fits a ${width}px phone`, async ({ page }) => {

@@ -61,14 +61,14 @@ export function Today({ store, people, nameOf, onMark, onOther, onUnmark, onShow
   return (
     <div className="grid gap-4">
       <section aria-label="Needs doing" className={`${cardClass} p-5 sm:p-6`}>
-        <h2 className="text-xl font-semibold text-stone-800">Needs doing</h2>
+        <h2 className="text-xl font-semibold text-ink">Needs doing</h2>
         {needs.length === 0 ? (
-          <p className="mt-2 text-lg text-stone-600">
+          <p className="mt-2 text-lg text-muted">
             Nothing due right now.
             {next && ` Next: ${next.person.name} at ${clockWords(next.row.slot.time)}${toYmd(next.row.slot.at) !== today ? ' tomorrow' : ''}.`}
           </p>
         ) : (
-          <ul className="mt-3 divide-y divide-stone-200">
+          <ul className="mt-3 divide-y divide-line">
             {needs.map(({ person, row }) => {
               const may = canGive(person, role, me);
               const target = { med: row.med, slot: row.slot.key, slotAt: row.slot.at };
@@ -76,10 +76,10 @@ export function Today({ store, people, nameOf, onMark, onOther, onUnmark, onShow
                 <li key={`${row.med.id}-${row.slot.key}`} className="flex flex-wrap items-center gap-3 py-3">
                   <Avatar person={person} people={people} size={40} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-medium text-stone-800">
-                      {medLabel(row.med)} <span className="font-normal text-stone-600">for {person.name}</span>
+                    <p className="text-base font-medium text-ink">
+                      {medLabel(row.med)} <span className="font-normal text-muted">for {person.name}</span>
                     </p>
-                    <p className={`text-sm ${row.state === 'missed' ? 'font-medium text-terracotta-dark' : 'text-stone-600'}`}>
+                    <p className={`text-sm ${row.state === 'missed' ? 'font-medium text-attention' : 'text-muted'}`}>
                       {[whenText(row, now), doseText(row.med)].filter(Boolean).join(' · ')}
                     </p>
                   </div>
@@ -136,25 +136,25 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
     <section aria-label={`${person.name} today`} className={`${cardClass} p-5`}>
       <div className="flex items-center gap-3">
         <Avatar person={person} people={people} size={44} />
-        <h2 className="min-w-0 flex-1 text-lg font-semibold text-stone-800">{person.name}</h2>
+        <h2 className="min-w-0 flex-1 text-lg font-semibold text-ink">{person.name}</h2>
         <button type="button" className={ghostButton} aria-label={`Show ${person.name}'s medicines`} onClick={() => onShowMeds(person.id)}>
           Medicines
         </button>
       </div>
-      {meds.length === 0 && <p className="mt-2 text-base text-stone-600">No medicines at the moment.</p>}
-      {person.allergies && <p className="mt-2 text-sm text-stone-600">Allergies: {person.allergies}</p>}
+      {meds.length === 0 && <p className="mt-2 text-base text-muted">No medicines at the moment.</p>}
+      {person.allergies && <p className="mt-2 text-sm text-muted">Allergies: {person.allergies}</p>}
       {done.length > 0 && (
         <>
           <h3 className={`${overline} mt-4`}>Done today</h3>
           <ul className="mt-1 space-y-1">
             {done.map((r) => (
-              <li key={`${r.med.id}-${r.slot.key}`} className="flex items-center gap-2 text-base text-stone-700">
-                <Check size={16} className={r.state === 'given' ? 'text-forest-600' : 'text-stone-500'} aria-hidden="true" />
+              <li key={`${r.med.id}-${r.slot.key}`} className="flex items-center gap-2 text-base text-ink-soft">
+                <Check size={16} className={r.state === 'given' ? 'text-positive' : 'text-muted'} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  {medLabel(r.med)} <span className="text-sm text-stone-600">{clockWords(r.slot.time)} · {markedText(r.log!, r.slot.at, nameOf)}</span>
+                  {medLabel(r.med)} <span className="text-sm text-muted">{clockWords(r.slot.time)} · {markedText(r.log!, r.slot.at, nameOf)}</span>
                 </span>
                 {may && (
-                  <button type="button" className="min-h-11 rounded-xl px-2 text-sm text-stone-600 hover:bg-stone-100" aria-label={`Undo: ${medLabel(r.med)} at ${clockWords(r.slot.time)}`} onClick={() => onUnmark(r.log!)}>
+                  <button type="button" className="min-h-11 rounded-xl px-2 text-sm text-muted hover:bg-sunken" aria-label={`Undo: ${medLabel(r.med)} at ${clockWords(r.slot.time)}`} onClick={() => onUnmark(r.log!)}>
                     Undo
                   </button>
                 )}
@@ -164,15 +164,15 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
         </>
       )}
       {later.length > 0 && (
-        <p className="mt-3 text-base text-stone-700">
-          <span className="text-stone-600">Later today: </span>
+        <p className="mt-3 text-base text-ink-soft">
+          <span className="text-muted">Later today: </span>
           {laterText(later)}
         </p>
       )}
       {asNeeded.length > 0 && (
         <>
           <h3 className={`${overline} mt-4`}>When needed</h3>
-          <ul className="mt-1 divide-y divide-stone-200">
+          <ul className="mt-1 divide-y divide-line">
             {asNeeded.map((m) => {
               const logs = logsOf(data.doses, m.id);
               const check = asNeededCheck(logs, now, { minHours: m.minHours, maxPerDay: m.maxPerDay });
@@ -180,8 +180,8 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
               return (
                 <li key={m.id} className="flex flex-wrap items-center gap-3 py-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-base text-stone-800">{medLabel(m)}</p>
-                    <p className="text-sm text-stone-600">
+                    <p className="text-base text-ink">{medLabel(m)}</p>
+                    <p className="text-sm text-muted">
                       {last ? `Last ${agoWords(last.at, now)} by ${nameOf(last.by)}` : 'Not given recently'}
                       {!check.ok && ` · fine from ${clockWords(toHhmm(check.nextAt))}${toYmd(check.nextAt) !== today ? ' tomorrow' : ''}`}
                     </p>
@@ -198,7 +198,7 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
         </>
       )}
       {low.length > 0 && (
-        <p className="mt-3 text-sm font-medium text-terracotta-dark">
+        <p className="mt-3 text-sm font-medium text-attention">
           Running low: {low.map(medLabel).join(', ')}
         </p>
       )}

@@ -210,7 +210,7 @@ export function MedDialog({ med, person, contacts, now, onSave, onStop, onRestar
         </div>
 
         <fieldset>
-          <legend className="mb-1.5 block text-sm font-medium text-stone-700">When</legend>
+          <legend className="mb-1.5 block text-sm font-medium text-ink-soft">When</legend>
           <div className="flex flex-wrap gap-2">
             <Chip active={!asNeeded} onClick={() => setAsNeeded(false)}>
               At set times
@@ -226,7 +226,7 @@ export function MedDialog({ med, person, contacts, now, onSave, onStop, onRestar
                   <span key={i} className="inline-flex items-center gap-1">
                     <input className={`${inputClass} max-w-36`} type="time" value={t} aria-label={`Dose ${i + 1} time`} onChange={(e) => setTimes((l) => l.map((x, j) => (j === i ? e.target.value : x)))} />
                     {times.length > 1 && (
-                      <button type="button" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-stone-600 hover:bg-stone-100" aria-label={`Remove dose ${i + 1} time`} onClick={() => setTimes((l) => l.filter((_, j) => j !== i))}>
+                      <button type="button" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted hover:bg-sunken" aria-label={`Remove dose ${i + 1} time`} onClick={() => setTimes((l) => l.filter((_, j) => j !== i))}>
                         <X size={18} />
                       </button>
                     )}
@@ -264,7 +264,7 @@ export function MedDialog({ med, person, contacts, now, onSave, onStop, onRestar
         </fieldset>
 
         <fieldset>
-          <legend className="mb-1.5 block text-sm font-medium text-stone-700">Food</legend>
+          <legend className="mb-1.5 block text-sm font-medium text-ink-soft">Food</legend>
           <div className="flex flex-wrap gap-2">
             <Chip active={food === 'with'} onClick={() => setFood('with')}>
               With food
@@ -292,9 +292,9 @@ export function MedDialog({ med, person, contacts, now, onSave, onStop, onRestar
           {contactSelect('Pharmacy', 'Pharmacy', pharmacyId, setPharmacyId, /pharmac|chemist/i)}
         </div>
 
-        <details className="rounded-2xl border border-stone-200 p-4" open={!!med?.supply || !!med?.refills}>
-          <summary className="cursor-pointer select-none text-sm font-medium text-stone-700">Supply and refills</summary>
-          <p className="mt-2 text-sm text-stone-600">Count what is on hand to be told a week before it runs out. Each dose marked given counts down.</p>
+        <details className="rounded-2xl border border-line p-4" open={!!med?.supply || !!med?.refills}>
+          <summary className="cursor-pointer select-none text-sm font-medium text-ink-soft">Supply and refills</summary>
+          <p className="mt-2 text-sm text-muted">Count what is on hand to be told a week before it runs out. Each dose marked given counts down.</p>
           <div className="mt-3 grid gap-4 sm:grid-cols-4">
             <Field label="On hand now">
               <input className={inputClass} inputMode="decimal" value={supply} onChange={(e) => setSupply(e.target.value.slice(0, 6))} placeholder="30" />

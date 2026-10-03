@@ -76,7 +76,7 @@ function SignedIn({ user, ...frame }: FrameProps & { user: User }) {
     );
   return (
     <Plain user={user} {...frame}>
-      <h2 className="text-2xl font-semibold text-stone-800">Not in a household yet</h2>
+      <h2 className="text-2xl font-semibold text-ink">Not in a household yet</h2>
       <p className="mt-2">
         {user.email} isn't a member of a Huishouden household. Ask someone in your household to invite this address from the Huishouden home screen, then open
         Health again. If you use another Google account for the household, sign out and sign in with that one.
@@ -138,10 +138,10 @@ function DemoInner({ read, signInError, ...frame }: FrameProps & { read: () => n
 
 function Plain({ user, children, hideSignIn, ...frame }: FrameProps & { user: User | null; children?: ReactNode; hideSignIn?: boolean }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-cream font-sans text-stone-800 antialiased">
+    <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased">
       <Header tabs={[]} tab="" onTab={() => {}} user={hideSignIn ? undefined : user} {...frame} />
       <main className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6">
-        {children && <div className={`${cardClass} max-w-2xl p-6 text-lg text-stone-600`}>{children}</div>}
+        {children && <div className={`${cardClass} max-w-2xl p-6 text-lg text-muted`}>{children}</div>}
       </main>
     </div>
   );

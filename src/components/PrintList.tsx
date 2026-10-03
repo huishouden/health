@@ -76,7 +76,7 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
   const table = (meds: Med[]) => (
     <table className="mt-2 w-full border-collapse text-left text-base phone:block">
       <thead className="phone:sr-only">
-        <tr className="border-b-2 border-stone-800 text-sm">
+        <tr className="border-b-2 border-ink text-sm">
           <th className="py-1.5 pr-3 font-semibold">Medicine</th>
           <th className="py-1.5 pr-3 font-semibold">Dose</th>
           <th className="py-1.5 pr-3 font-semibold">When</th>
@@ -84,23 +84,23 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
           <th className="py-1.5 font-semibold">Since</th>
         </tr>
       </thead>
-      <tbody className="phone:block phone:border-t-2 phone:border-stone-800">
+      <tbody className="phone:block phone:border-t-2 phone:border-ink">
         {meds.map((m) => {
           const by = contactName(list.contacts, m.prescriberId);
           return (
-            <tr key={m.id} className="break-inside-avoid border-b border-stone-200 align-top phone:block phone:py-3">
+            <tr key={m.id} className="break-inside-avoid border-b border-line align-top phone:block phone:py-3">
               <td className="py-2 pr-3 font-medium phone:block phone:p-0 phone:text-lg">{medLabel(m)}</td>
               <td className="py-2 pr-3 phone:block phone:p-0">{doseText(m)}</td>
               <td className="py-2 pr-3 phone:block phone:p-0">
                 {scheduleText(m)}
                 {m.endDate ? `, until ${longDate(m.endDate, today)}` : ''}
-                {m.notes && <span className="block text-sm text-stone-600">{m.notes}</span>}
+                {m.notes && <span className="block text-sm text-muted">{m.notes}</span>}
               </td>
               <td className={`py-2 pr-3 phone:p-0 ${by ? 'phone:block' : 'phone:hidden'}`}>
                 <span className="hidden phone:inline">Prescribed by </span>
                 {by}
               </td>
-              <td className="py-2 whitespace-nowrap phone:block phone:p-0 phone:whitespace-normal phone:text-stone-600">
+              <td className="py-2 whitespace-nowrap phone:block phone:p-0 phone:whitespace-normal phone:text-muted">
                 <span className="hidden phone:inline">Since </span>
                 {longDate(m.startDate, today)}
               </td>
@@ -114,7 +114,7 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
     <section
       aria-label={`Medicine list for ${person.name}`}
       data-hh-print=""
-      className="min-w-0 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm [overflow-wrap:break-word] sm:p-6 print:text-black"
+      className="min-w-0 rounded-2xl border border-line bg-surface p-4 shadow-sm [overflow-wrap:break-word] sm:p-6 print:text-black"
     >
       <div className="mb-4 flex flex-wrap gap-2 print:hidden">
         <button type="button" className={primaryButton} onClick={() => window.print()}>
@@ -127,27 +127,27 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
           <X size={18} /> Close
         </button>
       </div>
-      <h1 className="text-2xl font-semibold text-stone-800">Medicines for {person.name}</h1>
-      <p className="mt-1 text-base text-stone-700">
+      <h1 className="text-2xl font-semibold text-ink">Medicines for {person.name}</h1>
+      <p className="mt-1 text-base text-ink-soft">
         {[person.birthDate ? `Born ${longDate(person.birthDate)}${age !== null ? ` (${age})` : ''}` : '', `As of ${longDate(today)}`].filter(Boolean).join(' · ')}
       </p>
-      <p className="mt-1 text-base font-medium text-stone-800">Allergies: {person.allergies || 'none recorded'}</p>
+      <p className="mt-1 text-base font-medium text-ink">Allergies: {person.allergies || 'none recorded'}</p>
       {scheduled.length > 0 && (
         <>
-          <h2 className="mt-5 text-lg font-semibold text-stone-800">Taken regularly</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Taken regularly</h2>
           {table(scheduled)}
         </>
       )}
       {asNeeded.length > 0 && (
         <>
-          <h2 className="mt-5 text-lg font-semibold text-stone-800">When needed</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">When needed</h2>
           {table(asNeeded)}
         </>
       )}
       {list.current.length === 0 && <p className="mt-4 text-base">No medicines at the moment.</p>}
       {list.stopped.length > 0 && (
         <>
-          <h2 className="mt-5 text-lg font-semibold text-stone-800">Stopped in the last three months</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Stopped in the last three months</h2>
           <ul className="mt-1 list-disc pl-5 text-base">
             {list.stopped.map((m) => (
               <li key={m.id}>
@@ -157,10 +157,10 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
           </ul>
         </>
       )}
-      {list.adherence !== null && <p className="mt-5 text-base text-stone-700">Doses given in the last 30 days: {list.adherence}%.</p>}
+      {list.adherence !== null && <p className="mt-5 text-base text-ink-soft">Doses given in the last 30 days: {list.adherence}%.</p>}
       {list.contacts.length > 0 && (
         <>
-          <h2 className="mt-5 text-lg font-semibold text-stone-800">Doctors and pharmacy</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Doctors and pharmacy</h2>
           <ul className="mt-1 text-base">
             {list.contacts.map((c) => (
               <li key={c.id}>

@@ -42,12 +42,12 @@ export function DoseDialog({ med, personName, slotAt, now, warning, initial = 'g
     >
       <div className="space-y-4">
         {warning && (
-          <p role="alert" className="flex gap-2 rounded-2xl border border-terracotta bg-terracotta-light/30 p-3 text-base text-stone-800">
+          <p role="alert" className="flex gap-2 rounded-2xl border border-terracotta bg-attention-tint/30 p-3 text-base text-ink">
             <AlertTriangle size={20} className="mt-0.5 shrink-0 text-terracotta" aria-hidden="true" />
             {warning}
           </p>
         )}
-        {slotAt !== undefined && <p className="text-base text-stone-700">The {clockWords(toHhmm(slotAt))} dose.</p>}
+        {slotAt !== undefined && <p className="text-base text-ink-soft">The {clockWords(toHhmm(slotAt))} dose.</p>}
         <div className="flex flex-wrap gap-2" role="group" aria-label="What happened">
           <Chip active={status === 'given'} onClick={() => setStatus('given')}>
             Given

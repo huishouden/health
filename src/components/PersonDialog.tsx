@@ -105,8 +105,8 @@ export function PersonDialog({ person, photo, household, me, nameOf, onSave, onD
           </select>
         </Field>
         <fieldset>
-          <legend className="mb-1.5 block text-sm font-medium text-stone-700">Who looks after their medicines</legend>
-          <p className="mb-2 text-sm text-stone-600">They see this person's medicines and mark doses. The first is reminded at each dose time; the others hear when a dose isn't marked.</p>
+          <legend className="mb-1.5 block text-sm font-medium text-ink-soft">Who looks after their medicines</legend>
+          <p className="mb-2 text-sm text-muted">They see this person's medicines and mark doses. The first is reminded at each dose time; the others hear when a dose isn't marked.</p>
           <ul className="space-y-1">
             {candidates.map((m) => {
               const on = carers.includes(m) || m === mustStay;
@@ -115,14 +115,14 @@ export function PersonDialog({ person, photo, household, me, nameOf, onSave, onD
                 <li key={m} className="flex flex-wrap items-center gap-2">
                   <Checkbox checked={on} onChange={(v) => (m === mustStay ? undefined : toggle(m, v))}>
                     {nameOf(m)}
-                    {roleOf(m) === 'helper' ? ' (helper)' : ''} <span className="text-sm text-stone-600">{m}</span>
+                    {roleOf(m) === 'helper' ? ' (helper)' : ''} <span className="text-sm text-muted">{m}</span>
                   </Checkbox>
-                  {on && (main ? <span className="text-sm text-forest-700">Reminded first</span> : <button type="button" className="min-h-11 rounded-xl px-2 text-sm text-stone-600 hover:bg-stone-100" onClick={() => makeMain(m)}>Remind first</button>)}
+                  {on && (main ? <span className="text-sm text-link">Reminded first</span> : <button type="button" className="min-h-11 rounded-xl px-2 text-sm text-muted hover:bg-sunken" onClick={() => makeMain(m)}>Remind first</button>)}
                 </li>
               );
             })}
           </ul>
-          <p className="mt-1 text-sm text-stone-600">Admins always see everyone's medicines.</p>
+          <p className="mt-1 text-sm text-muted">Admins always see everyone's medicines.</p>
         </fieldset>
         <Field label="Allergies (optional)">
           <input className={inputClass} value={allergies} maxLength={LIMITS.allergies} onChange={(e) => setAllergies(e.target.value)} placeholder="Penicillin" autoComplete="off" />
