@@ -137,7 +137,7 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
       <div className="flex items-center gap-3">
         <Avatar person={person} people={people} size={44} />
         <h2 className="min-w-0 flex-1 text-lg font-semibold text-stone-800">{person.name}</h2>
-        <button type="button" className={ghostButton} onClick={() => onShowMeds(person.id)}>
+        <button type="button" className={ghostButton} aria-label={`Show ${person.name}'s medicines`} onClick={() => onShowMeds(person.id)}>
           Medicines
         </button>
       </div>
