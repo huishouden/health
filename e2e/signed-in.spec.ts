@@ -69,11 +69,11 @@ test('only the admin and the person’s carer see their medicines; the carer giv
   const admin = await as(browser, 'test-a@example.com');
   await testPerson(admin);
 
-  // A member who doesn't look after them sees nobody: the rules return nothing.
+  // A member who doesn't look after them sees nobody (the rules return nothing): only the prompt to add a person.
   const member = await as(browser, 'test-b@example.com');
   await loaded(member);
   await member.getByRole('button', { name: 'Medicines', exact: true }).click();
-  await expect(member.getByText("Nobody's medicines are shared with you yet. An admin can add you as someone who looks after them.")).toBeVisible();
+  await expect(member.getByText('Whose medicines does the household look after?')).toBeVisible({ timeout: 20_000 });
   await expect(member.getByText(PERSON)).toHaveCount(0);
 
   // The helper who looks after them sees them, marks a dose (saved: no refusal), and changes no medicine.
@@ -109,11 +109,16 @@ test('a dose not marked is on the portal’s To-do list for the admin, not for o
   try {
     // Published a few seconds after the change, for named people only.
     await admin.waitForTimeout(6000);
+    await admin.goto('/todo');
+    await expect(admin.getByRole('listitem', { name: title, exact: true })).toBeVisible({ timeout: 45_000 });
+    // Another member's To-do list, loaded, never has it.
     const member = await as(browser, 'test-b@example.com');
-    await member.goto('/todo', { waitUntil: 'networkidle' });
+    await member.goto('/todo');
+    await expect(member.getByRole('heading', { name: 'To-do', level: 2 })).toBeVisible({ timeout: 30_000 });
+    await expect(member.getByRole('region', { name: 'Loading' })).toHaveCount(0, { timeout: 30_000 });
+    await expect(member.getByRole('listitem', { name: title, exact: true })).toHaveCount(0);
 
     await runPortalTodo(admin, title, { action: 'done', timeout: 45_000 });
-    await expect(member.getByRole('listitem', { name: title, exact: true })).toHaveCount(0);
 
     await admin.goto('./?tab=history');
     await expect(admin.getByRole('region', { name: `${PERSON}'s history` })).toContainText(new RegExp(`${name} 12:00 AM · given by You`), { timeout: 20_000 });
