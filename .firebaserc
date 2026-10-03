@@ -1,0 +1,8 @@
+{
+  "projects": { "default": "huishouden-piekstra" },
+  "targets": {
+    "huishouden-piekstra": {
+      "hosting": { "health": ["huishouden-health"] }
+    }
+  }
+}
