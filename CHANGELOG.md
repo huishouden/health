@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/huishouden/health/compare/v1.0.1...v1.1.0) (2026-10-03)
+
+
+### Features
+
+* dark mode that follows the suite's theme ([#6](https://github.com/huishouden/health/issues/6)) ([ae38ed0](https://github.com/huishouden/health/commit/ae38ed04fe69acc85f8ae9767644e6811cf9a3a8))
+
 ## [1.0.1](https://github.com/huishouden/health/compare/v1.0.0...v1.0.1) (2026-10-03)
 
 
