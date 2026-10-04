@@ -240,5 +240,6 @@
   "live.meds": "Couldn't load the medicines",
   "live.doses": "Couldn't load the doses",
   "live.contacts": "Couldn't load the contacts",
-  "live.saveFailed": "Couldn't save"
+  "live.saveFailed": "Couldn't save",
+  "meds.atTime": "{name}, {time}"
 }

@@ -240,5 +240,6 @@
   "live.meds": "No se pudieron cargar los medicamentos",
   "live.doses": "No se pudieron cargar las dosis",
   "live.contacts": "No se pudieron cargar los contactos",
-  "live.saveFailed": "No se pudo guardar"
+  "live.saveFailed": "No se pudo guardar",
+  "meds.atTime": "{name}, {time}"
 }

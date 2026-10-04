@@ -240,5 +240,6 @@
   "live.meds": "De medicijnen konden niet worden geladen",
   "live.doses": "De doses konden niet worden geladen",
   "live.contacts": "De contacten konden niet worden geladen",
-  "live.saveFailed": "Opslaan lukte niet"
+  "live.saveFailed": "Opslaan lukte niet",
+  "meds.atTime": "{name}, {time}"
 }

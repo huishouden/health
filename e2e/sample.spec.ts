@@ -173,3 +173,16 @@ test('adding a person with carers', async ({ page }) => {
   await expect(page.getByRole('region', { name: 'People' })).toContainText('Opa Henk');
   await expect(page.getByRole('region', { name: 'People' })).toContainText('Reminded first: Alex');
 });
+
+test('a medicine’s dose times go into your own calendar, repeating; as needed has none', async ({ page }) => {
+  await open(page, './?tab=medicines&person=demo-person-ria');
+  const ria = page.getByRole('region', { name: /Oma Ria/ });
+  await ria.getByRole('button', { name: 'Add Lisinopril 10 mg to a calendar' }).click();
+  const google = new URL((await ria.getByRole('menuitem', { name: 'Google Calendar' }).getAttribute('href'))!);
+  expect(google.searchParams.get('text')).toBe('Lisinopril 10 mg');
+  expect(google.searchParams.get('recur')).toBe('RRULE:FREQ=WEEKLY;BYDAY=SU,MO,TU,WE,TH,FR,SA;WKST=SU');
+  await page.keyboard.press('Escape');
+  // Twice a day: one each, the time in the name.
+  await expect(ria.getByRole('button', { name: /^Add Metformin 500 mg, .+ to a calendar$/ })).toHaveCount(2);
+  await expect(ria.getByRole('button', { name: /^Add Paracetamol/ })).toHaveCount(0);
+});
