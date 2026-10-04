@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/huishouden/health/compare/v1.4.0...v1.4.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* kit v0.74.0 to 0.82.1, contacts' pay details for admins and members only ([#20](https://github.com/huishouden/health/issues/20)) ([af70133](https://github.com/huishouden/health/commit/af7013365094c0a7422299c031f2b415443d0d38))
+
 ## [1.4.0](https://github.com/huishouden/health/compare/v1.3.0...v1.4.0) (2026-10-04)
 
 
