@@ -2,8 +2,9 @@
 // (`@huishouden/pwa-kit/audience`): each person's admins, carers and the person themself.
 //
 // - Agenda (portal Today and Calendar): one item per person per dose time, today and tomorrow,
-//   "Medicine for Nan", with how many medicines. Never a medicine's name: the portal may be on a
-//   wall tablet.
+//   "Medicine for Nan", with how many medicines. Never a medicine's name where the portal shows
+//   it (it may be on a wall tablet): the names go only in `calendarDetail`, which the portal never
+//   shows and a reader's own calendar includes when they turn on Health details.
 // - To-dos (portal To-do): doses not marked in the last 24 hours, one per person and time, with
 //   Given and Skip; and refills, with Ordered.
 // - Reminders (push, to the recipients' own devices): at each dose time to the main carer, naming
@@ -61,6 +62,7 @@ export function agendaItems(input: PublishInput): PersonalAgendaInput[] {
       start: g.at,
       allDay: false,
       detail: medicines(g.rows.length),
+      calendarDetail: g.rows.map((r) => [medLabel(r.med), doseText(r.med)].filter(Boolean).join(', ')).join('; '),
       url: input.url(personPath(person)),
       who: person.name,
       status: g.rows.every((r) => handled(r.state)) ? ('done' as const) : ('upcoming' as const),

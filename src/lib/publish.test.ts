@@ -18,9 +18,17 @@ describe('agenda', () => {
     expect(items.find((i) => i.who === 'Noor' && new Date(i.start).getHours() === 8 && i.start < DEMO_NOW)?.status).toBe('done');
     for (const i of items) {
       expect(i.title).toMatch(/^Medicine for /);
-      expect(leaks(JSON.stringify(i))).toEqual([]);
+      // Names only in calendarDetail, which the portal never shows.
+      const { calendarDetail, ...shown } = i;
+      expect(leaks(JSON.stringify(shown))).toEqual([]);
+      expect(calendarDetail).toBeTruthy();
       expect(i.kind).toBe('medicine');
     }
+  });
+
+  test('each dose time names its medicines for the reader’s own calendar', () => {
+    const ria8 = items.find((i) => i.who === 'Oma Ria' && new Date(i.start).getHours() === 8 && i.start > DEMO_NOW - 12 * 3_600_000)!;
+    expect(leaks(ria8.calendarDetail!).length).toBe(2);
   });
 
   test('only admins, carers and the person read them; never kids or other members', () => {
