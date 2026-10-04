@@ -6,8 +6,8 @@ Open it and the first thing you see answers "whose medicine is due now?": every 
 marked yet, for everyone the household looks after, each with Given, Skip and Late (another time),
 and Undo. Below that, each person's day: what was given, by whom and when, what is still to come,
 the medicines taken when needed (with how long since the last dose), and anything running low.
-Medicines holds each person's list (dose, when, with food or not, who prescribed it, which pharmacy,
-supply and refills); a pharmacy label can be scanned to fill it in. History counts the doses given,
+Medicines holds each person's list (dose, when, with food or not, who prescribed it, which pharmacy
+and how far it is from home, supply and refills); a pharmacy label can be scanned to fill it in. History counts the doses given,
 skipped and missed, and every list prints or shares as one page for a doctor's visit.
 
 It is for anyone the household gives medicine to: a grandparent without an account, a child, or a
@@ -49,6 +49,10 @@ _Screenshots of the live site signed out, which shows an invented household date
   (`@huishouden/pwa-kit/dose` `recentlyGiven`, `asNeededCheck`).
 - **Supply**: the count on hand when it was last counted, less the doses given since; at a week left
   the medicine shows as running low.
+- **How far**: once the household has set its home in the portal (`households/{id}.home`, kit
+  `./home`), the pharmacy beside each medicine and each doctor's and pharmacy's card say how far
+  they are from home ("2.3 mi from home"), measured on the device from the position the contact's
+  map search found. The map search itself prefers places around home.
 - **Scan the label** (`@huishouden/pwa-kit/react/dose` `LabelScan`): read on the device, never
   uploaded or kept. The form shows what was filled in, what to check, and the lines read but not used.
 

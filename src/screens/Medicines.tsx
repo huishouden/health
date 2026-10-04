@@ -1,6 +1,8 @@
 import { Pencil, Plus, Printer } from 'lucide-react';
 import type { Contact } from '@huishouden/pwa-kit/contacts';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
+import { useHome } from '@huishouden/pwa-kit/react/home';
+import type { HouseholdHome } from '@huishouden/pwa-kit/home';
 import { cardClass, ghostButton, primaryButton, secondaryButton } from '@huishouden/pwa-kit/react/ui';
 import { longDate, toYmd } from '@huishouden/pwa-kit/time';
 import type { Med, Person } from '../lib/model';
@@ -11,6 +13,7 @@ import { canEdit, canGive } from '../lib/people';
 import type { HealthStore } from '../data/actions';
 import { Avatar, PersonChips } from '../components/Avatar';
 import { useT } from '../i18n';
+import { nameFromHome } from '../lib/contacts';
 import { capitalize, compareText, getLang } from '@huishouden/pwa-kit/i18n';
 
 export interface MedicinesProps {
@@ -28,6 +31,12 @@ export interface MedicinesProps {
 }
 
 const contactName = (contacts: Contact[], id?: string) => (id ? contacts.find((c) => c.id === id)?.name : undefined);
+
+/** The pharmacy with how far it is from home, where both are known: where the refill is picked up. */
+const pharmacyName = (contacts: Contact[], id: string | undefined, home: HouseholdHome | undefined) => {
+  const c = id ? contacts.find((x) => x.id === id) : undefined;
+  return c ? nameFromHome(c, { home }) : undefined;
+};
 
 /** The unit the household typed ("tablet"), with an English plural only in English: it is their word, not ours. */
 export const unitWords = (unit: string, n: number) => (getLang() === 'en' && n !== 1 && unit !== 'ml' ? `${unit}s` : unit);
@@ -98,6 +107,7 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
 function MedRow({ med: m, store, person, highlight, onEdit, onCount, onOrdered }: { med: Med; store: HealthStore; person: Person; highlight: boolean; onEdit?: () => void; onCount: () => void; onOrdered: () => void }) {
   const t = useT();
   const { now } = useClock();
+  const home = useHome();
   const { doses, contacts } = store.data;
   const left = supplyLeft(m, doses);
   const days = daysLeft(m, doses, now);
@@ -105,7 +115,7 @@ function MedRow({ med: m, store, person, highlight, onEdit, onCount, onOrdered }
   const ordered = m.refillOrderedAt && m.refillOrderedAt >= (m.supplyAt ?? m.createdAt);
   const may = canGive(person, store.role, store.me);
   const upcoming = !isCurrent(m, toYmd(now)) && m.startDate > toYmd(now);
-  const who = [contactName(contacts, m.prescriberId), contactName(contacts, m.pharmacyId)].filter(Boolean).join(' · ');
+  const who = [contactName(contacts, m.prescriberId), pharmacyName(contacts, m.pharmacyId, home)].filter(Boolean).join(' · ');
   return (
     <li className={`py-3 ${highlight ? 'rounded-xl bg-tint px-3' : ''}`}>
       <div className="flex flex-wrap items-start gap-3">
