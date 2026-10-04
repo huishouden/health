@@ -40,7 +40,7 @@ describe('the portal stays name-free in every language', () => {
 describe('dose reminders say the time the reader’s way', () => {
   test('"At 6 PM", "A las 6 p.m.", "Om 18:00", then the medicines', async () => {
     const reminders = await localizeReminders(() => reminderItems(input));
-    const dose = reminders.find((r) => r.ref?.startsWith('health:dose:') && r.body.includes('Metformin'))!;
+    const dose = reminders.find((r) => r.ref?.startsWith('health:dose:') && r.body?.includes('Metformin'))!;
     expect(dose.texts.en?.body).toMatch(/^At 6 PM: Metformin/);
     expect(dose.texts.es?.body).toMatch(/^A las 6 p\.m\.: Metformin .*con comida/);
     expect(dose.texts.nl?.body).toMatch(/^Om 18:00: Metformin .*bij het eten/);
