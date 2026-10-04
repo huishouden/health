@@ -15,7 +15,8 @@
     "screenshots": "playwright test e2e/screenshots.spec.ts",
     "icons": "pwa-logo pill public/icon.svg && pwa-icons --background=#1b4332",
     "prepare": "git config core.hooksPath .githooks",
-    "env:pull": "gh variable list --json name,value -q '.[] | select(.name|startswith(\"VITE_\")) | \"\\(.name)=\\(.value)\"' > .env.local && echo 'wrote .env.local'"
+    "env:pull": "gh variable list --json name,value -q '.[] | select(.name|startswith(\"VITE_\")) | \"\\(.name)=\\(.value)\"' > .env.local && echo 'wrote .env.local'",
+    "e2e:emulator": "playwright test e2e/signed-in.spec.ts --grep-invert @staging"
   },
   "dependencies": {
     "firebase": "^12.19.0",
