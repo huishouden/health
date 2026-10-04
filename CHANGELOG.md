@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/huishouden/health/compare/v1.1.0...v1.2.0) (2026-10-04)
+
+
+### Features
+
+* Health in Spanish and Dutch ([#9](https://github.com/huishouden/health/issues/9)) ([36a510f](https://github.com/huishouden/health/commit/36a510f6c835e1d98078708a8fbf635e98c75867))
+
 ## [1.1.0](https://github.com/huishouden/health/compare/v1.0.1...v1.1.0) (2026-10-03)
 
 
