@@ -104,3 +104,10 @@ Signed out, the app shows an invented household (`src/lib/demo.ts`); `?as=helper
 the home carer, and `?as=kid` as a kid. CI (`pwa-kit` `pwa.yml`) deploys pull requests to
 `huishouden-staging-health.web.app/health/` and runs the signed-in tests there; `main` deploys the
 suite's one site.
+
+## License
+
+Source available under [PolyForm Shield 1.0.0](LICENSE): you may use, study and modify this code
+for any purpose except providing a product that competes with Huishouden.
+
+Huishouden and its logo are the project's brand; please don't use them for other products.
