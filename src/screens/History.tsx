@@ -6,6 +6,8 @@ import type { Dose, Med, Person } from '../lib/model';
 import { adherenceOf, medLabel, rateText, rowsBetween } from '../lib/meds';
 import type { HealthStore } from '../data/actions';
 import { Avatar, PersonChips } from '../components/Avatar';
+import { useT } from '../i18n';
+import { capitalize, numberFormat } from '@huishouden/pwa-kit/i18n';
 
 /** How far back adherence is counted. */
 export const HISTORY_DAYS = 30;
@@ -28,6 +30,7 @@ export function History({ store, people, selected, onSelect, nameOf, onPrint, em
   onPrint: (personId: string) => void;
   empty: React.ReactNode;
 }) {
+  const t = useT();
   const { now } = useClock();
   if (people.length === 0) return <>{empty}</>;
   const shown = selected ? people.filter((p) => p.id === selected) : people;
@@ -43,30 +46,30 @@ export function History({ store, people, selected, onSelect, nameOf, onPrint, em
         const stats = scheduled.map((m) => ({ med: m, a: adherenceOf(m, doses, from, now, now) }));
         const missed = stats.reduce((n, s) => n + s.a.missed, 0);
         const given = stats.reduce((n, s) => n + s.a.given, 0);
-        const overall = given + missed ? Math.round((given / (given + missed)) * 100) : null;
+        const overall = given + missed ? given / (given + missed) : null;
         return (
-          <section key={p.id} aria-label={`${p.name}'s history`} className={`${cardClass} p-5 sm:p-6`}>
+          <section key={p.id} aria-label={t('history.of', { name: p.name })} className={`${cardClass} p-5 sm:p-6`}>
             <div className="flex flex-wrap items-center gap-3">
               <Avatar person={p} people={people} size={44} />
-              <h2 className="min-w-0 flex-1 text-xl font-semibold text-ink">{p.name}</h2>
+              <h2 className="min-w-0 flex-1 basis-40 text-xl font-semibold text-ink">{p.name}</h2>
               <button type="button" className={ghostButton} onClick={() => onPrint(p.id)}>
-                <Printer size={18} /> List for the doctor
+                <Printer size={18} /> {t('medicines.printList')}
               </button>
             </div>
             <div className="mt-4 flex flex-wrap gap-x-10 gap-y-3">
-              <Figure label={`Given on time or late, last ${HISTORY_DAYS} days`} value={overall === null ? '–' : `${overall}%`} />
-              <Figure label={`Missed, last ${HISTORY_DAYS} days`} value={String(missed)} attention={missed > 0} />
+              <Figure label={t('history.givenRate', { days: HISTORY_DAYS })} value={overall === null ? '–' : numberFormat({ style: 'percent', maximumFractionDigits: 0 }).format(overall)} />
+              <Figure label={t('history.missedCount', { days: HISTORY_DAYS })} value={String(missed)} attention={missed > 0} />
             </div>
             {stats.length > 0 && (
               <table className="mt-4 w-full text-left text-base">
-                <caption className={`${overline} pb-1 text-left`}>By medicine</caption>
+                <caption className={`${overline} pb-1 text-left`}>{t('history.byMedicine')}</caption>
                 <thead>
                   <tr className="border-b border-line text-sm text-muted">
-                    <th className="py-1.5 font-medium">Medicine</th>
-                    <th className="py-1.5 pl-2 text-right font-medium">Given</th>
-                    <th className="py-1.5 pl-2 text-right font-medium">Missed</th>
-                    <th className="py-1.5 pl-2 text-right font-medium">Skipped</th>
-                    <th className="py-1.5 pl-2 text-right font-medium">Rate</th>
+                    <th className="py-1.5 font-medium">{t('history.medicine')}</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">{t('dose.given')}</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">{t('history.missed')}</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">{t('dose.skipped')}</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">{t('history.rate')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -101,12 +104,13 @@ function Figure({ label, value, attention }: { label: string; value: string; att
 
 /** The last two weeks day by day: every dose given or skipped (who and when) and every one missed. */
 function DoseLog({ meds, doses, now, nameOf }: { meds: Med[]; doses: Dose[]; now: number; nameOf: (e: string) => string }) {
+  const t = useT();
   const today = toYmd(now);
   const from = ymdToTime(addDays(today, -(LOG_DAYS - 1)));
   const byId = new Map(meds.map((m) => [m.id, m]));
   const entries: Entry[] = [];
   for (const r of rowsBetween(meds, doses, from, now, now)) {
-    if (r.state === 'missed') entries.push({ at: r.slot.at, med: r.med, text: `${clockWords(r.slot.time)} · missed`, tone: 'missed' });
+    if (r.state === 'missed') entries.push({ at: r.slot.at, med: r.med, text: t('history.missedAt', { time: clockWords(r.slot.time) }), tone: 'missed' });
   }
   for (const d of doses) {
     const med = byId.get(d.medId);
@@ -114,21 +118,21 @@ function DoseLog({ meds, doses, now, nameOf }: { meds: Med[]; doses: Dose[]; now
     entries.push({
       at: d.at,
       med,
-      text: `${formatTime(d.at)} · ${d.status === 'skipped' ? 'skipped' : 'given'} by ${nameOf(d.by)}${d.note ? ` · ${d.note}` : ''}`,
+      text: `${t(d.status === 'skipped' ? 'history.skippedBy' : 'history.givenBy', { time: formatTime(d.at), name: nameOf(d.by) })}${d.note ? ` · ${d.note}` : ''}`,
       tone: d.status,
     });
   }
   entries.sort((a, b) => b.at - a.at);
   const days = new Map<string, Entry[]>();
   for (const e of entries) days.set(toYmd(e.at), [...(days.get(toYmd(e.at)) ?? []), e]);
-  if (!entries.length) return <p className="mt-4 text-base text-muted">No doses in the last two weeks.</p>;
+  if (!entries.length) return <p className="mt-4 text-base text-muted">{t('history.none')}</p>;
   return (
     <div className="mt-5">
-      <h3 className={overline}>Last two weeks</h3>
+      <h3 className={overline}>{t('history.lastTwoWeeks')}</h3>
       <div className="mt-1 space-y-3">
         {[...days.entries()].map(([day, list]) => (
           <div key={day}>
-            <p className="text-sm font-medium text-ink-soft">{longDate(day, today)}</p>
+            <p className="text-sm font-medium text-ink-soft">{capitalize(longDate(day, today))}</p>
             <ul className="mt-0.5 space-y-0.5">
               {list.map((e, i) => (
                 <li key={i} className="flex gap-2 text-base">

@@ -59,7 +59,7 @@ test('Scan the label shows what it filled, and what it read but did not use', as
   const filled = dialog.getByRole('region', { name: 'Filled in from the label' });
   await expect(filled).toContainText('Filled in from the label. Check each field before saving.');
   await expect(filled).toContainText('MedicineMetformin');
-  await expect(filled).toContainText('Every day at 8 AM, 8 PM');
+  await expect(filled).toContainText('Every day at 8 AM and 8 PM');
   await expect(dialog.getByRole('list', { name: 'Not used' })).toContainText('zq7 smudge');
   await expect(dialog.getByText('Left out: 3 pharmacy lines')).toBeVisible();
   await expect(dialog.getByLabel('Medicine', { exact: true })).toHaveValue('Metformin');

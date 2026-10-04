@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import { Chip } from '@huishouden/pwa-kit/react/ui';
 import type { Person } from '../lib/model';
+import { useT } from '../i18n';
 
 /** Each person's photo (a data URL) by person id, provided once by the app. */
 export const Photos = createContext<ReadonlyMap<string, string>>(new Map());
@@ -25,11 +26,12 @@ export function Avatar({ person, people, size = 40 }: { person: Person | undefin
 
 /** "Everyone" plus one chip per person, when there is more than one. */
 export function PersonChips({ people, selected, onSelect }: { people: Person[]; selected: string | null; onSelect: (id: string | null) => void }) {
+  const t = useT();
   if (people.length < 2) return null;
   return (
-    <div role="group" aria-label="People" className="flex flex-wrap gap-2 print:hidden">
+    <div role="group" aria-label={t('tab.people')} className="flex flex-wrap gap-2 print:hidden">
       <Chip active={selected === null} onClick={() => onSelect(null)}>
-        Everyone
+        {t('people.everyone')}
       </Chip>
       {people.map((p) => (
         <Chip key={p.id} active={selected === p.id} onClick={() => onSelect(p.id)}>

@@ -19,7 +19,7 @@ describe('the sample morning', () => {
 
   test('schedules in words', () => {
     expect(scheduleText(med('metformin'))).toBe('Every day at 8 AM and 6 PM');
-    expect(scheduleText(med('amoxicillin'))).toBe('Every day at 8 AM, 2 PM and 8 PM');
+    expect(scheduleText(med('amoxicillin'))).toBe('Every day at 8 AM, 2 PM, and 8 PM');
     expect(scheduleText(med('vitd'))).toBe('Every Monday at 8 AM');
     expect(scheduleText(med('paracetamol'))).toBe('As needed, at least 4 hours apart, at most 4 a day');
   });

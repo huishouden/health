@@ -4,6 +4,8 @@ import { Chip, Dialog, Field, ghostButton, inputClass, primaryButton } from '@hu
 import { clockWords, fromLocalInput, toHhmm, toLocalInput } from '@huishouden/pwa-kit/time';
 import { LIMITS, type DoseStatus, type Med } from '../lib/model';
 import { medLabel } from '../lib/meds';
+import { useT } from '../i18n';
+import { unitWords } from '../screens/Medicines';
 
 /**
  * Marking a dose with more than one tap: given at another time (late, or earlier and not ticked),
@@ -20,6 +22,7 @@ export function DoseDialog({ med, personName, slotAt, now, warning, initial = 'g
   onSave: (status: DoseStatus, at: number, note: string) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [status, setStatus] = useState<DoseStatus>(initial);
   const [when, setWhen] = useState(toLocalInput(now));
   const [note, setNote] = useState('');
@@ -27,15 +30,15 @@ export function DoseDialog({ med, personName, slotAt, now, warning, initial = 'g
   const valid = at !== null && at <= now + 60_000;
   return (
     <Dialog
-      title={`${medLabel(med)} for ${personName}`}
+      title={t('doseDialog.title', { med: medLabel(med), name: personName })}
       onClose={onClose}
       footer={
         <>
           <button type="button" className={ghostButton} onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button type="button" className={primaryButton} disabled={!valid} onClick={() => (onSave(status, at!, note), onClose())}>
-            {warning && status === 'given' ? 'Give it again' : status === 'given' ? 'Mark given' : 'Mark skipped'}
+            {warning && status === 'given' ? t('doseDialog.giveAgain') : status === 'given' ? t('doseDialog.markGiven') : t('doseDialog.markSkipped')}
           </button>
         </>
       }
@@ -47,20 +50,20 @@ export function DoseDialog({ med, personName, slotAt, now, warning, initial = 'g
             {warning}
           </p>
         )}
-        {slotAt !== undefined && <p className="text-base text-ink-soft">The {clockWords(toHhmm(slotAt))} dose.</p>}
-        <div className="flex flex-wrap gap-2" role="group" aria-label="What happened">
+        {slotAt !== undefined && <p className="text-base text-ink-soft">{t('doseDialog.slot', { time: clockWords(toHhmm(slotAt)) })}</p>}
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t('doseDialog.whatHappened')}>
           <Chip active={status === 'given'} onClick={() => setStatus('given')}>
-            Given
+            {t('dose.given')}
           </Chip>
           <Chip active={status === 'skipped'} onClick={() => setStatus('skipped')}>
-            Skipped
+            {t('dose.skipped')}
           </Chip>
         </div>
-        <Field label={status === 'given' ? 'Given at' : 'Marked at'}>
+        <Field label={status === 'given' ? t('doseDialog.givenAt') : t('doseDialog.markedAt')}>
           <input className={inputClass} type="datetime-local" value={when} max={toLocalInput(now)} onChange={(e) => setWhen(e.target.value)} />
         </Field>
-        <Field label={status === 'skipped' ? 'Why (optional)' : 'Note (optional)'}>
-          <input className={inputClass} value={note} maxLength={LIMITS.doseNote} onChange={(e) => setNote(e.target.value)} placeholder={status === 'skipped' ? 'Fasting for a blood test' : 'Took it with lunch'} autoComplete="off" />
+        <Field label={status === 'skipped' ? t('doseDialog.why') : t('doseDialog.note')}>
+          <input className={inputClass} value={note} maxLength={LIMITS.doseNote} onChange={(e) => setNote(e.target.value)} placeholder={status === 'skipped' ? t('doseDialog.whyPlaceholder') : t('doseDialog.notePlaceholder')} autoComplete="off" />
         </Field>
       </div>
     </Dialog>
@@ -69,30 +72,31 @@ export function DoseDialog({ med, personName, slotAt, now, warning, initial = 'g
 
 /** Counting what is on hand, after a refill or now and then. */
 export function CountDialog({ med, left, onSave, onClose }: { med: Med; left: number | null; onSave: (supply: number, refills?: number) => void; onClose: () => void }) {
+  const t = useT();
   const [count, setCount] = useState(left !== null ? String(Math.round(left)) : '');
   const [refills, setRefills] = useState(med.refills !== undefined ? String(med.refills) : '');
   const n = Number(count.replace(',', '.'));
   const valid = count.trim() !== '' && Number.isFinite(n) && n >= 0;
   return (
     <Dialog
-      title={`Count ${medLabel(med)}`}
+      title={t('countDialog.title', { med: medLabel(med) })}
       onClose={onClose}
       footer={
         <>
           <button type="button" className={ghostButton} onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button type="button" className={primaryButton} disabled={!valid} onClick={() => (onSave(n, refills.trim() === '' ? undefined : Number(refills)), onClose())}>
-            Save
+            {t('common.save')}
           </button>
         </>
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={`On hand now${med.doseUnit ? ` (${med.doseUnit}s)` : ''}`}>
+        <Field label={med.doseUnit ? t('countDialog.onHandUnit', { unit: unitWords(med.doseUnit, 2) }) : t('countDialog.onHand')}>
           <input className={inputClass} inputMode="decimal" value={count} onChange={(e) => setCount(e.target.value.slice(0, 6))} />
         </Field>
-        <Field label="Refills left">
+        <Field label={t('countDialog.refills')}>
           <input className={inputClass} inputMode="numeric" value={refills} onChange={(e) => setRefills(e.target.value.replace(/\D/g, '').slice(0, 2))} />
         </Field>
       </div>

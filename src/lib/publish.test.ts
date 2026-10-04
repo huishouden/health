@@ -55,7 +55,7 @@ describe('reminders', () => {
   test("at each dose time to the main carer, naming the medicines; unmarked to the others after the window", () => {
     const evening = items.find((r) => r.ref === 'health:dose:demo-person-ria' && new Date(r.at).getHours() === 18)!;
     expect(evening.recipients).toEqual([DEMO_HELPER]);
-    expect(evening.body).toBe('6 PM: Metformin 500 mg, 1 tablet, with food');
+    expect(evening.body).toBe('At 6 PM: Metformin 500 mg, 1 tablet, with food');
     const late = items.find((r) => r.ref === 'health:late:demo-person-ria' && new Date(r.at).getHours() === 18)!;
     expect(new Date(late.at).getMinutes()).toBe(30);
     expect(late.recipients).toEqual([SAM]);
