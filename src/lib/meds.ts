@@ -14,8 +14,9 @@ import {
   type ScheduleCourse,
   type SlotStatus,
 } from '@huishouden/pwa-kit/dose';
-import { describeRule } from '@huishouden/pwa-kit/schedule';
-import { addDays, agoWords, clockWords, DAY, toHhmm, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
+import { describeRule, type EventRule } from '@huishouden/pwa-kit/schedule';
+import type { CalendarEntry } from '@huishouden/pwa-kit/calendar-export';
+import { addDays, agoWords, atTime, clockWords, DAY, toHhmm, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
 import { LOW_SUPPLY_DAYS, type Dose, type Med } from './model';
 import { t } from '../i18n';
 import { compareText, formatList, numberFormat } from '@huishouden/pwa-kit/i18n';
@@ -192,3 +193,45 @@ export function rateText(a: Adherence): string {
 }
 
 export type { DoseSlot };
+
+const ALL_WEEK = [0, 1, 2, 3, 4, 5, 6];
+
+/**
+ * The days a scheduled medicine is taken, as a calendar rule: its own `rule` from its start, every
+ * day, or every so many weeks. Null when as needed, without times, or every N days that isn't whole
+ * weeks (2, 3...), which a calendar's repeat can't say.
+ */
+export function doseRule(m: Med): EventRule | null {
+  if (m.asNeeded || m.times.length === 0) return null;
+  const until = m.endDate ? { until: m.endDate } : {};
+  if (m.rule) {
+    // The rule's own start keeps its rhythm (every other week, the 15th); its days before the
+    // medicine started are in the past.
+    const end = m.rule.until && m.endDate ? (m.rule.until < m.endDate ? m.rule.until : m.endDate) : (m.rule.until ?? m.endDate);
+    return { ...m.rule, ...(end ? { until: end } : {}) };
+  }
+  const every = m.everyDays ?? 1;
+  if (every === 1) return { freq: 'week', every: 1, start: m.startDate, days: ALL_WEEK, ...until };
+  if (every % 7 === 0) return { freq: 'week', every: every / 7, start: m.startDate, ...until };
+  return null;
+}
+
+/**
+ * "Add to calendar" for a medicine: one repeating event per dose time ("Lisinopril 10 mg", with the
+ * time in the title when there are several), for the person's own calendar on their own device.
+ * Empty when the schedule can't repeat in a calendar (`doseRule`).
+ */
+export function doseEntries(m: Med, url?: string): CalendarEntry[] {
+  const rule = doseRule(m);
+  if (!rule) return [];
+  const label = medLabel(m);
+  return m.times.map((time) => ({
+    title: (m.times.length > 1 ? t('meds.atTime', { name: label, time: clockWords(time) }) : label).slice(0, 120),
+    start: atTime(rule.start, time),
+    allDay: false,
+    kind: 'medicine' as const,
+    ...(doseText(m) ? { detail: doseText(m) } : {}),
+    ...(url ? { url } : {}),
+    series: { rule, time, minutes: 15 },
+  }));
+}

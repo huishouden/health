@@ -4,7 +4,9 @@ import { useClock } from '@huishouden/pwa-kit/react/clock';
 import { cardClass, ghostButton, primaryButton, secondaryButton } from '@huishouden/pwa-kit/react/ui';
 import { longDate, toYmd } from '@huishouden/pwa-kit/time';
 import type { Med, Person } from '../lib/model';
-import { daysLeft, daysLeftText, doseText, isCurrent, isStopped, medLabel, refillDue, scheduleText, supplyLeft } from '../lib/meds';
+import { daysLeft, daysLeftText, doseEntries, doseText, isCurrent, isStopped, medLabel, refillDue, scheduleText, supplyLeft } from '../lib/meds';
+import { AddToCalendar } from '@huishouden/pwa-kit/react/calendar';
+import { appUrl } from '@huishouden/pwa-kit/site';
 import { canEdit, canGive } from '../lib/people';
 import type { HealthStore } from '../data/actions';
 import { Avatar, PersonChips } from '../components/Avatar';
@@ -130,6 +132,10 @@ function MedRow({ med: m, store, person, highlight, onEdit, onCount, onOrdered }
           )}
         </div>
         <div className="flex flex-wrap gap-1.5">
+          {/* Into the person's own calendar, from their own device: one repeating event per dose time. */}
+          {doseEntries(m, appUrl(import.meta.env.BASE_URL, `?tab=medicines&person=${encodeURIComponent(person.id)}`)).map((entry) => (
+            <AddToCalendar key={entry.series?.time} compact entry={entry} />
+          ))}
           {due && may && (
             <button type="button" className={secondaryButton} onClick={onOrdered}>
               {t('medicines.refillOrdered')}
