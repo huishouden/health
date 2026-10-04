@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { stubOpenStreetMap } from '@huishouden/pwa-kit/e2e';
 
 // The signed-out sample household on its fixed morning (Wednesday 14 May 2031, 10:30): Oma Ria's
 // 8 AM metformin is not marked, her paracetamol was given at 8:40 and her lisinopril runs low.
@@ -185,4 +186,32 @@ test('a medicine’s dose times go into your own calendar, repeating; as needed 
   // Twice a day: one each, the time in the name.
   await expect(ria.getByRole('button', { name: /^Add Metformin 500 mg, .+ to a calendar$/ })).toHaveCount(2);
   await expect(ria.getByRole('button', { name: /^Add Paracetamol/ })).toHaveCount(0);
+});
+
+// The sample home is 12 Example Lane (39.7817, -89.6501); the sample pharmacy is 2.3 miles east.
+const FOUND_PHARMACY = {
+  osm_type: 'node', osm_id: 1001, lat: '39.7817', lon: '-89.6066', name: 'Example Drugstore',
+  display_name: 'Example Drugstore, 400 Example Avenue, Springfield, Illinois, 62701, United States',
+  address: { house_number: '400', road: 'Example Avenue', city: 'Springfield', state: 'Illinois', postcode: '62701', country_code: 'us' },
+  extratags: { phone: '+1 555 010 7799' },
+};
+
+test('the pharmacy says how far it is from home, on the medicine, its card and the map search', async ({ page }) => {
+  await stubOpenStreetMap(page, { search: [FOUND_PHARMACY] });
+  await open(page, './?tab=medicines&person=demo-person-ria');
+  const ria = page.getByRole('region', { name: "Oma Ria's medicines" });
+  await expect(ria.getByRole('listitem').filter({ hasText: 'Lisinopril 10 mg' })).toContainText('Dr. Lena Hart · CVS Pharmacy, 2.3 mi from home');
+
+  await page.goto('./?tab=people');
+  const doctors = page.getByRole('region', { name: 'Doctors and pharmacies' });
+  await expect(doctors.getByRole('region', { name: 'CVS Pharmacy' })).toContainText('2.3 mi from home');
+  // No position, no distance.
+  await expect(doctors.getByRole('region', { name: 'Dr. Omar Velde' })).not.toContainText('from home');
+
+  await doctors.getByRole('button', { name: 'Add' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Find a business').fill('drugstore');
+  await dialog.getByRole('button', { name: 'Search' }).click();
+  await expect(dialog.getByRole('list', { name: 'Places' })).toContainText('Example Drugstore');
+  await expect(dialog.getByRole('list', { name: 'Places' })).toContainText('2.3 mi from home');
 });

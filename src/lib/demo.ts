@@ -1,4 +1,5 @@
 import type { Contact } from '@huishouden/pwa-kit/contacts';
+import type { HouseholdHome } from '@huishouden/pwa-kit/home';
 import { addDays, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
 import type { Dose, Med, Person, PersonPhoto } from './model';
 import { doseId, rowsBetween } from './meds';
@@ -119,11 +120,14 @@ function contacts(): Contact[] {
     id, name, role, phone, apps: ['health'], private: true, createdAt: CREATED, by: SAM, ...extra,
   });
   return [
-    c(GP, 'Dr. Lena Hart', 'Doctor', '(555) 010-2231', { address: '12 Example Street' }),
+    c(GP, 'Dr. Lena Hart', 'Doctor', '(555) 010-2231', { address: '12 Example Street', lat: 39.7983, lng: -89.6544 }),
     c(PEDS, 'Dr. Omar Velde', 'Pediatrician', '(555) 010-4410'),
-    c(PHARMACY, 'CVS Pharmacy', 'Pharmacy', '(555) 010-7788', { website: 'https://www.cvs.com' }),
+    c(PHARMACY, 'CVS Pharmacy', 'Pharmacy', '(555) 010-7788', { website: 'https://www.cvs.com', address: '400 Example Avenue, Springfield', lat: 39.7817, lng: -89.6066 }),
   ];
 }
+
+/** The sample household's home, for "2.3 mi from home" beside the pharmacy and on the care team's cards. */
+export const DEMO_HOME: HouseholdHome = { address: '12 Example Lane, Springfield, Illinois 62701', lat: 39.7817, lng: -89.6501, setBy: SAM, updatedAt: CREATED };
 
 export function demoData(): HealthData {
   const m = meds();

@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { setHome } from '@huishouden/pwa-kit/home';
 import { sampleContacts } from '@huishouden/pwa-kit/contacts';
 import { localIds } from '@huishouden/pwa-kit/store';
 import { useSampleStore } from '@huishouden/pwa-kit/react/store';
-import { DEMO_HELPER, DEMO_MEMBERS, demoData, demoRole, type HealthData } from '../lib/demo';
+import { DEMO_HELPER, DEMO_HOME, DEMO_MEMBERS, demoData, demoRole, type HealthData } from '../lib/demo';
 import { createActions, type Backend, type DataKey, type HealthStore } from './actions';
 import { canSee } from '../lib/people';
 
@@ -15,6 +16,11 @@ export function useDemoStore(clock: () => number): HealthStore {
   const { data, read, patch, backend: memory } = useSampleStore<HealthData, DataKey>(demoData);
   const [role] = useState(() => demoRole(location.search));
   const me = role === 'admin' ? DEMO_MEMBERS[0] : DEMO_HELPER;
+  // The sample's own home while it shows, so distances read as they would at home; gone on sign-in.
+  useEffect(() => {
+    setHome(DEMO_HOME);
+    return () => setHome(undefined);
+  }, []);
   const household = useMemo(() => ({ members: [...DEMO_MEMBERS, DEMO_HELPER], roles: { [DEMO_HELPER]: role === 'kid' ? ('kid' as const) : ('helper' as const) } }), [role]);
 
   const actions = useMemo(() => {
