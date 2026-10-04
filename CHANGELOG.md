@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/huishouden/health/compare/v1.3.0...v1.4.0) (2026-10-04)
+
+
+### Features
+
+* medicine names for the reader's own calendar only (calendarDetail, kit v0.71.0) ([#15](https://github.com/huishouden/health/issues/15)) ([681bc5b](https://github.com/huishouden/health/commit/681bc5b52dec259c0d184c0e2be74cee285e7828))
+
 ## [1.3.0](https://github.com/huishouden/health/compare/v1.2.0...v1.3.0) (2026-10-04)
 
 
