@@ -83,7 +83,7 @@ export function PersonDialog({ person, photo, household, me, nameOf, onSave, onD
             photo={shownPhoto}
             label={name.trim() ? t('personDialog.photoOf', { name: name.trim() }) : t('personDialog.photo')}
             size={72}
-            fallback={<span className="inline-flex h-18 w-18 items-center justify-center rounded-full bg-forest-600 text-2xl font-semibold text-white">{(name.trim()[0] ?? '?').toUpperCase()}</span>}
+            fallback={<span className="inline-flex h-18 w-18 items-center justify-center rounded-full bg-forest-600 text-2xl font-semibold text-white ring-1 ring-tile-ring">{(name.trim()[0] ?? '?').toUpperCase()}</span>}
             onSave={setNewPhoto}
             onRemove={shownPhoto ? () => setNewPhoto(null) : undefined}
           />

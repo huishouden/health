@@ -15,7 +15,7 @@ export function Avatar({ person, people, size = 40 }: { person: Person | undefin
   const i = Math.max(0, people.findIndex((p) => p.id === person?.id));
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ring-1 ring-tile-ring"
       style={{ width: size, height: size, backgroundColor: COLOURS[i % COLOURS.length], fontSize: Math.round(size * 0.42) }}
       aria-hidden="true"
     >
