@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/huishouden/health/compare/v1.2.0...v1.3.0) (2026-10-04)
+
+
+### Features
+
+* a medicine's dose times in your own calendar (kit v0.67.0) ([#11](https://github.com/huishouden/health/issues/11)) ([541ecf1](https://github.com/huishouden/health/commit/541ecf110c96478a87053b77f7ecd438b0a2b19f))
+
+
+### Bug Fixes
+
+* **dark:** initial avatars keep an edge in dark; kit 0.70.0 ([#14](https://github.com/huishouden/health/issues/14)) ([a2cfa61](https://github.com/huishouden/health/commit/a2cfa611b7489c452687eefce50395ca1bc4520c))
+
 ## [1.2.0](https://github.com/huishouden/health/compare/v1.1.0...v1.2.0) (2026-10-04)
 
 
