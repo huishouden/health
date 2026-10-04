@@ -9,6 +9,7 @@ import {
   expectSecurityHeaders,
   expectThemeConsistent,
 } from '@huishouden/pwa-kit/e2e';
+import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
 test('loads without runtime errors and shows the sample day', async ({ page }) => {
   await expectCleanLoad(page);
@@ -21,7 +22,7 @@ test('loads without runtime errors and shows the sample day', async ({ page }) =
 test('link previews say what Health is', async ({ page, request }) => {
   await page.goto('./');
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Medicines and care for everyone at home');
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://huishouden-piekstra.web.app/health/og.png');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `${SUITE_ORIGIN}/health/og.png`);
   expect((await request.get('./og.png')).ok()).toBe(true);
 });
 

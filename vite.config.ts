@@ -23,7 +23,6 @@ export default defineConfig({
       name: 'Huishouden Health',
       shortName: 'Health',
       description: 'Medicines and care for everyone at home',
-      url: 'https://huishouden-piekstra.web.app/health/',
       push: true,
       // Scan the label works offline once the reader has been used.
       ocr: true,

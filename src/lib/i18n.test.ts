@@ -8,6 +8,7 @@ import { agendaItems, reminderItems, todoItems, type PublishInput } from './publ
 import { scheduleText } from './meds';
 import { roleLabel } from './contacts';
 import { listModel, listText } from '../components/PrintList';
+import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
 // Spanish and Dutch: what Health writes for the household in each language. Medicine names stay off
 // the portal (agenda and to-dos) in every language; reminders to the carers' own devices name them.
@@ -17,7 +18,7 @@ afterEach(() => setLangForTests('en'));
 const data = demoData();
 const [SAM, ALEX] = DEMO_MEMBERS;
 const household = { members: [SAM, ALEX, DEMO_HELPER], roles: { [DEMO_HELPER]: 'helper' as const } };
-const input: PublishInput = { ...data, household, now: DEMO_NOW, url: (p) => `https://huishouden-piekstra.web.app/health/${p}` };
+const input: PublishInput = { ...data, household, now: DEMO_NOW, url: (p) => `${SUITE_ORIGIN}/health/${p}` };
 const names = data.meds.map((m) => m.name);
 const leaks = (text: string) => names.filter((n) => text.includes(n));
 

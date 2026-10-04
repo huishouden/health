@@ -2,11 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { DEMO_HELPER, DEMO_MEMBERS, DEMO_NOW, demoData } from './demo';
 import { agendaItems, reminderItems, sensitiveWords, todoItems, type PublishInput } from './publish';
 import { todoOpsAllowed } from '@huishouden/pwa-kit/todos';
+import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
 const data = demoData();
 const [SAM, ALEX] = DEMO_MEMBERS;
 const household = { members: [SAM, ALEX, DEMO_HELPER, 'kid@example.com'], roles: { [DEMO_HELPER]: 'helper' as const, 'kid@example.com': 'kid' as const } };
-const input: PublishInput = { ...data, household, now: DEMO_NOW, url: (p) => `https://huishouden-piekstra.web.app/health/${p}` };
+const input: PublishInput = { ...data, household, now: DEMO_NOW, url: (p) => `${SUITE_ORIGIN}/health/${p}` };
 const names = data.meds.map((m) => m.name);
 const leaks = (text: string) => names.filter((n) => text.includes(n));
 
