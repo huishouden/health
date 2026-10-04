@@ -17,6 +17,8 @@ import {
 import { describeRule } from '@huishouden/pwa-kit/schedule';
 import { addDays, agoWords, clockWords, DAY, toHhmm, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
 import { LOW_SUPPLY_DAYS, type Dose, type Med } from './model';
+import { t } from '../i18n';
+import { compareText, formatList, numberFormat } from '@huishouden/pwa-kit/i18n';
 
 /** A dose is due from 30 minutes before its time until 2 hours after; later it is missed. */
 export const WINDOW = { earlyMinutes: 30, graceMinutes: 120 };
@@ -52,19 +54,22 @@ export const doseId = (medId: string, slot: string) => `${medId}_${slot.replace(
 /** "Every day at 8 AM and 8 PM", "Every other day at 9 AM", "As needed, at least 4 hours apart, at most 3 a day". */
 export function scheduleText(m: Med): string {
   if (m.asNeeded) {
-    const parts = ['As needed'];
-    if (m.minHours) parts.push(`at least ${m.minHours} ${m.minHours === 1 ? 'hour' : 'hours'} apart`);
-    if (m.maxPerDay) parts.push(`at most ${m.maxPerDay} a day`);
+    const parts = [t('meds.asNeeded')];
+    if (m.minHours) parts.push(t('meds.minHours', { count: m.minHours }));
+    if (m.maxPerDay) parts.push(t('meds.maxPerDay', { count: m.maxPerDay }));
     return parts.join(', ');
   }
-  const days = m.rule ? describeRule(m.rule) : (m.everyDays ?? 1) === 1 ? 'Every day' : (m.everyDays ?? 1) === 2 ? 'Every other day' : `Every ${m.everyDays} days`;
-  const times = m.times.map(clockWords);
-  return `${days} at ${times.length > 1 ? `${times.slice(0, -1).join(', ')} and ${times.at(-1)}` : times[0] ?? ''}`.trim();
+  const days = m.rule ? describeRule(m.rule) : t('meds.everyDays', { count: m.everyDays ?? 1 });
+  if (!m.times.length) return days;
+  // "at 8 AM and 8 PM", "a las 8 a.m. y 8 p.m.", "om 8:00 en 20:00".
+  const times = m.times.map((x) => clockWords(x));
+  // Spanish says "a la 1" but "a las 8": the first time decides.
+  return t('meds.daysAtTimes', { days, times: formatList(times), one: /^1(?!\d)/.test(times[0]) ? 'yes' : 'no' });
 }
 
 /** "1 tablet, with food". */
 export function doseText(m: Pick<Med, 'dose' | 'withFood'>): string {
-  return [m.dose, m.withFood === true ? 'with food' : m.withFood === false ? 'on an empty stomach' : ''].filter(Boolean).join(', ');
+  return [m.dose, m.withFood === true ? t('meds.withFood') : m.withFood === false ? t('meds.emptyStomach') : ''].filter(Boolean).join(', ');
 }
 
 export type Row = SlotStatus<DoseLog & Dose> & { med: Med };
@@ -76,7 +81,7 @@ export function dayRows(meds: readonly Med[], doses: readonly Dose[], now: numbe
   return meds
     .filter((m) => !m.asNeeded && isCurrent(m, day))
     .flatMap((m) => slotStatuses(scheduleOf(m), logsOf(doses, m.id), from, to, now, WINDOW).map((s) => ({ ...s, med: m })))
-    .sort((a, b) => a.slot.at - b.slot.at || medLabel(a.med).localeCompare(medLabel(b.med)));
+    .sort((a, b) => a.slot.at - b.slot.at || compareText(medLabel(a.med), medLabel(b.med)));
 }
 
 /** Scheduled doses between `from` and `to` (any medicine current then), with what happened. */
@@ -84,7 +89,7 @@ export function rowsBetween(meds: readonly Med[], doses: readonly Dose[], from: 
   return meds
     .filter((m) => !m.asNeeded)
     .flatMap((m) => slotStatuses(scheduleOf(m), logsOf(doses, m.id), from, to, now, WINDOW).map((s) => ({ ...s, med: m })))
-    .sort((a, b) => a.slot.at - b.slot.at || medLabel(a.med).localeCompare(medLabel(b.med)));
+    .sort((a, b) => a.slot.at - b.slot.at || compareText(medLabel(a.med), medLabel(b.med)));
 }
 
 /** Rows grouped by dose time: one card per time on Today. */
@@ -113,14 +118,14 @@ export function guardFor(m: Med, doses: readonly Dose[], now: number, nameOf: (e
   if (m.asNeeded) {
     const check = asNeededCheck(logs, now, { minHours: m.minHours, maxPerDay: m.maxPerDay });
     if (check.ok) return { warning: null };
-    const next = `The next dose is fine from ${clockWords(toHhmm(check.nextAt))}${toYmd(check.nextAt) !== toYmd(now) ? ' tomorrow' : ''}.`;
-    if (check.reason === 'max-reached') return { warning: `${check.inLastDay} given in the last 24 hours, the most for ${medLabel(m)}. ${next}` };
-    return { warning: `Last given ${agoWords(check.last!, now)}; ${medLabel(m)} needs ${m.minHours} ${m.minHours === 1 ? 'hour' : 'hours'} between doses. ${next}` };
+    const next = t(toYmd(check.nextAt) !== toYmd(now) ? 'guard.nextTomorrow' : 'guard.next', { time: clockWords(toHhmm(check.nextAt)) });
+    if (check.reason === 'max-reached') return { warning: `${t('guard.max', { count: check.inLastDay, med: medLabel(m) })} ${next}` };
+    return { warning: `${t('guard.tooSoon', { ago: agoWords(check.last!, now), med: medLabel(m), count: m.minHours ?? 0 })} ${next}` };
   }
   const same = slot ? logs.find((l) => l.slot === slot && l.status === 'given') : undefined;
   const recent = same ?? recentlyGiven(logs, now, doubleDoseWindowMs(m.times));
   if (!recent) return { warning: null };
-  return { warning: `${medLabel(m)} was already given ${agoWords(recent.at, now)} by ${nameOf(recent.by)}. Give it again?` };
+  return { warning: t('guard.already', { med: medLabel(m), ago: agoWords(recent.at, now), name: nameOf(recent.by) }) };
 }
 
 // ---- Supply ----
@@ -169,8 +174,8 @@ export function lowOn(m: Med, doses: readonly Dose[], now: number): string | nul
 
 /** "About 5 days left", "Less than a day left". */
 export function daysLeftText(days: number): string {
-  if (days < 1) return 'Less than a day left';
-  return `About ${days} ${days === 1 ? 'day' : 'days'} left`;
+  if (days < 1) return t('meds.lessThanDay');
+  return t('meds.daysLeft', { count: days });
 }
 
 // ---- History ----
@@ -179,9 +184,11 @@ export function adherenceOf(m: Med, doses: readonly Dose[], from: number, to: nu
   return adherence(scheduleOf(m), logsOf(doses, m.id), from, to, now, WINDOW);
 }
 
-/** "92%" or "No doses yet". */
+/** "92%" ("92 %" where the locale says so) or "No doses yet". */
+const formatPercent = (rate: number) => numberFormat({ style: 'percent', maximumFractionDigits: 0 }).format(rate);
+
 export function rateText(a: Adherence): string {
-  return a.rate === null ? 'No doses yet' : `${Math.round(a.rate * 100)}%`;
+  return a.rate === null ? t('meds.noDoses') : formatPercent(a.rate);
 }
 
 export type { DoseSlot };

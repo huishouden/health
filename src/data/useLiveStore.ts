@@ -12,6 +12,7 @@ import { APP } from '../lib/publish';
 import { db } from './firebase';
 import { createActions, type Backend, type HealthStore, type Op } from './actions';
 import { useHealthSync } from './sync';
+import { t } from '../i18n';
 
 /** How far back the dose history reads: a year, for the doctor's list and adherence. */
 const DOSE_HISTORY_DAYS = 400;
@@ -33,7 +34,7 @@ export function useLiveStore(householdId: string, me: string, household: { membe
   const [contacts, setContacts] = useState<HealthData['contacts']>([]);
   const errorRef = useRef(onError);
   errorRef.current = onError;
-  const fail = (what: string) => (e: Error) => errorRef.current(readError(e, `Couldn't load ${what}`));
+  const fail = (what: () => string) => (e: Error) => errorRef.current(readError(e, what()));
 
   useEffect(() => {
     if (!role || role === 'kid') {
@@ -47,7 +48,7 @@ export function useLiveStore(householdId: string, me: string, household: { membe
       (s) => setPeople(s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Person, 'id'>) })).sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name))),
       (e) => {
         setPeople([]);
-        fail('the people')(e);
+        fail(() => t('live.people'))(e);
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -64,12 +65,12 @@ export function useLiveStore(householdId: string, me: string, household: { membe
         onSnapshot(
           collection(db, under, 'meds'),
           (s) => set(pid, { meds: s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Med, 'id'>), personId: pid })) }),
-          (e) => (set(pid, { meds: [] }), fail('the medicines')(e)),
+          (e) => (set(pid, { meds: [] }), fail(() => t('live.meds'))(e)),
         ),
         onSnapshot(
           query(collection(db, under, 'doses'), where('at', '>=', Date.now() - DOSE_HISTORY_DAYS * DAY)),
           (s) => set(pid, { doses: s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Dose, 'id'>), personId: pid })) }),
-          (e) => (set(pid, { doses: [] }), fail('the doses')(e)),
+          (e) => (set(pid, { doses: [] }), fail(() => t('live.doses'))(e)),
         ),
         onSnapshot(
           doc(db, under, 'photo', 'avatar'),
@@ -83,7 +84,7 @@ export function useLiveStore(householdId: string, me: string, household: { membe
   }, [base, ids]);
 
   useEffect(
-    () => watchContacts(db, householdId, setContacts, { app: APP, restricted, onError: fail('the contacts') }),
+    () => watchContacts(db, householdId, setContacts, { app: APP, restricted, onError: fail(() => t('live.contacts')) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [householdId, restricted],
   );
@@ -115,7 +116,7 @@ export function useLiveStore(householdId: string, me: string, household: { membe
   const ready = people !== null && people.every((p) => parts[p.id]?.meds !== undefined && parts[p.id]?.doses !== undefined);
 
   const actions = useMemo(() => {
-    const report = (p: Promise<unknown>) => void p.catch((e) => errorRef.current(readError(e, "Couldn't save")));
+    const report = (p: Promise<unknown>) => void p.catch((e) => errorRef.current(readError(e, t('live.saveFailed'))));
     // Data keys to paths: everything about a person is under their document.
     const path = (op: Op): { col: string; id: string } => {
       if (op.col === 'people') return { col: 'healthPeople', id: op.id };

@@ -10,6 +10,8 @@ import { toYmd } from '@huishouden/pwa-kit/time';
 import type { Med, Person } from './lib/model';
 import { guardFor, medLabel, supplyLeft } from './lib/meds';
 import { APP } from './lib/publish';
+import { CONTACT_ROLES, roleLabel } from './lib/contacts';
+import { useT } from './i18n';
 import { canAddPeople, canEdit } from './lib/people';
 import type { HealthStore } from './data/actions';
 import { auth } from './data/firebase';
@@ -23,18 +25,19 @@ import { Today } from './screens/Today';
 import { Medicines } from './screens/Medicines';
 import { History } from './screens/History';
 import { People } from './screens/People';
+import { compareText } from '@huishouden/pwa-kit/i18n';
 
 export type TabId = 'today' | 'medicines' | 'history' | 'people';
 
-const TABS: Tab[] = [
-  { id: 'today', label: 'Today', icon: CalendarCheck, primary: true },
-  { id: 'medicines', label: 'Medicines', icon: Pill, primary: true },
-  { id: 'history', label: 'History', icon: HistoryIcon, primary: true },
-  { id: 'people', label: 'People', icon: Users, primary: true },
+const tabs = (t: ReturnType<typeof useT>): Tab[] => [
+  { id: 'today', label: t('tab.today'), icon: CalendarCheck, primary: true },
+  { id: 'medicines', label: t('tab.medicines'), icon: Pill, primary: true },
+  { id: 'history', label: t('tab.history'), icon: HistoryIcon, primary: true },
+  { id: 'people', label: t('tab.people'), icon: Users, primary: true },
 ];
+const TAB_IDS: readonly TabId[] = ['today', 'medicines', 'history', 'people'];
 
-/** Doctors, pharmacies and the rest of the household's care, as one-tap roles in the contact dialog. */
-export const CONTACT_ROLES = ['Doctor', 'Pharmacy', 'Specialist', 'Dentist', 'Home care'] as const;
+export { CONTACT_ROLES } from './lib/contacts';
 
 interface Props {
   store: HealthStore;
@@ -55,11 +58,12 @@ const param = (k: string) => new URLSearchParams(location.search).get(k);
 
 function initialTab(): TabId {
   const t = param('tab');
-  return TABS.some((x) => x.id === t) ? (t as TabId) : 'today';
+  return TAB_IDS.some((x) => x === t) ? (t as TabId) : 'today';
 }
 
 /** Everything inside the frame once there is data to show (live or sample). */
 export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, notify, clearToast, banner, deviceSettings }: Props) {
+  const t = useT();
   const { now } = useClock();
   const { data, actions, role, me } = store;
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -73,12 +77,12 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const [printFor, setPrintFor] = useState<string | null>(() => param('print'));
 
   useEffect(() => {
-    document.title = 'Huishouden Health';
-  }, []);
+    document.title = t('app.documentTitle');
+  }, [t]);
 
-  const people = useMemo(() => [...data.people].sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name)), [data.people]);
+  const people = useMemo(() => [...data.people].sort((a, b) => a.createdAt - b.createdAt || compareText(a.name, b.name)), [data.people]);
   const photos = useMemo(() => new Map(data.photos.map((p) => [p.id, p.data])), [data.photos]);
-  const nameOf = (email: string) => (email === me ? 'You' : store.names?.get(email) ?? personName(email, { email: me }));
+  const nameOf = (email: string) => (email === me ? t('names.you') : store.names?.get(email) ?? personName(email, { email: me }));
   const personOf = (id: string) => people.find((p) => p.id === id);
 
   const setUrl = (changes: Record<string, string | null>) => {
@@ -102,40 +106,41 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
     setUrl({ print: id });
   };
 
-  const mark = (t: Target, status: 'given' | 'skipped', at = now, note = '') => {
-    const p = personOf(t.med.personId);
-    const undo = actions.markDose({ med: t.med, slot: t.slot, at, status, note });
-    notify(`${status === 'given' ? 'Given' : 'Skipped'}: ${medLabel(t.med)} for ${p?.name ?? ''}`.trim(), undo);
+  const mark = (target: Target, status: 'given' | 'skipped', at = now, note = '') => {
+    const p = personOf(target.med.personId);
+    const undo = actions.markDose({ med: target.med, slot: target.slot, at, status, note });
+    const med = medLabel(target.med);
+    notify(p ? t(status === 'given' ? 'toast.givenFor' : 'toast.skippedFor', { med, name: p.name }) : t(status === 'given' ? 'toast.given' : 'toast.skipped', { med }), undo);
   };
-  const onMark = (t: Target, status: 'given' | 'skipped') => {
+  const onMark = (target: Target, status: 'given' | 'skipped') => {
     if (status === 'given') {
-      const { warning } = guardFor(t.med, data.doses, now, nameOf, t.slot);
-      if (warning) return setDoseDialog({ target: t, warning, initial: 'given' });
+      const { warning } = guardFor(target.med, data.doses, now, nameOf, target.slot);
+      if (warning) return setDoseDialog({ target, warning, initial: 'given' });
     }
-    mark(t, status);
+    mark(target, status);
   };
 
   const empty = (
     <section className={`${cardClass} max-w-2xl p-6`}>
       {canAddPeople(role) ? (
         <>
-          <h2 className="text-xl font-semibold text-ink">Whose medicines does the household look after?</h2>
-          <p className="mt-2 text-lg text-muted">Add a person, then their medicines. Only the admins and the people you choose to look after them see them.</p>
+          <h2 className="text-xl font-semibold text-ink">{t('empty.title')}</h2>
+          <p className="mt-2 text-lg text-muted">{t('empty.body')}</p>
           <button type="button" className={`${primaryButton} mt-4`} onClick={() => setPersonDialog({ person: null })}>
-            Add a person
+            {t('empty.addPerson')}
           </button>
         </>
       ) : role === 'kid' ? (
-        <p className="text-lg text-muted">Medicines are looked after by the grown-ups.</p>
+        <p className="text-lg text-muted">{t('empty.kid')}</p>
       ) : (
-        <p className="text-lg text-muted">Nobody's medicines are shared with you yet. An admin can add you as someone who looks after them.</p>
+        <p className="text-lg text-muted">{t('empty.noneShared')}</p>
       )}
     </section>
   );
 
   const printPerson = printFor ? personOf(printFor) : undefined;
   let content: ReactNode;
-  if (!store.ready) content = <p className="p-2 text-lg text-muted">Loading medicines</p>;
+  if (!store.ready) content = <p className="p-2 text-lg text-muted">{t('app.loading')}</p>;
   else if (printPerson) content = <PrintList list={listModel(printPerson, data.meds, data.doses, data.contacts, now)} now={now} onClose={() => print(null)} />;
   else if (tab === 'medicines')
     content = (
@@ -148,7 +153,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         onAdd={(personId) => setMedDialog({ med: null, personId })}
         onEdit={(m) => setMedDialog({ med: m, personId: m.personId })}
         onCount={setCount}
-        onOrdered={(m) => notify(`Refill ordered: ${medLabel(m)}`, actions.refillOrdered(m))}
+        onOrdered={(m) => notify(t('toast.refillOrdered', { med: medLabel(m) }), actions.refillOrdered(m))}
         onPrint={print}
         empty={empty}
       />
@@ -165,7 +170,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         onContact={(c, r) => setContact({ contact: c, role: r })}
         onRemoveContact={(c) => {
           actions.removeContact(c);
-          notify(`Removed ${c.name}`, () => actions.restoreContact(c));
+          notify(t('toast.removed', { name: c.name }), () => actions.restoreContact(c));
         }}
         deviceSettings={deviceSettings}
       />
@@ -178,7 +183,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         nameOf={nameOf}
         onMark={onMark}
         onOther={(t) => setDoseDialog({ target: t })}
-        onUnmark={(d) => notify('Unmarked', actions.unmarkDoses([d]))}
+        onUnmark={(d) => notify(t('toast.unmarked'), actions.unmarkDoses([d]))}
         onShowMeds={(id) => {
           choosePerson(id);
           chooseTab('medicines');
@@ -194,7 +199,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
     <Photos.Provider value={photos}>
       <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased print:bg-white">
         <div className="print:hidden">
-          <Header tabs={TABS} tab={tab} onTab={(id) => (print(null), chooseTab(id as TabId))} user={user} onSignIn={onSignIn} onSignOut={onSignOut} signingIn={signingIn} />
+          <Header tabs={tabs(t)} tab={tab} onTab={(id) => (print(null), chooseTab(id as TabId))} user={user} onSignIn={onSignIn} onSignOut={onSignOut} signingIn={signingIn} />
         </div>
         <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6 print:p-0">
           {banner && <div className="print:hidden">{banner}</div>}
@@ -213,14 +218,14 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
               const id = actions.savePerson(personDialog.person?.id ?? null, input);
               if (photo) actions.savePhoto(id, photo);
               else if (photo === null) actions.removePhoto(id);
-              notify(personDialog.person ? `Saved ${input.name.trim()}` : `Added ${input.name.trim()}`);
+              notify(personDialog.person ? t('toast.saved', { name: input.name.trim() }) : t('common.added', { name: input.name.trim() }));
             }}
             onDelete={
               personDialog.person && canEdit(personDialog.person, role, me)
                 ? () => {
                     const bundle = actions.removePerson(personDialog.person!);
                     if (selected === bundle.person.id) choosePerson(null);
-                    notify(`Removed ${bundle.person.name}`, () => actions.restorePerson(bundle));
+                    notify(t('toast.removed', { name: bundle.person.name }), () => actions.restorePerson(bundle));
                   }
                 : undefined
             }
@@ -235,11 +240,11 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
             onClose={() => setMedDialog(null)}
             onSave={(input) => {
               actions.saveMed(medDialog.med?.id ?? null, input);
-              notify(medDialog.med ? `Saved ${medLabel(input)}` : `Added ${medLabel(input)} for ${medPerson.name}`);
+              notify(medDialog.med ? t('toast.saved', { name: medLabel(input) }) : t('toast.addedFor', { med: medLabel(input), name: medPerson.name }));
             }}
-            onStop={medDialog.med && !(medDialog.med.endDate && medDialog.med.endDate < toYmd(now)) ? () => notify(`Stopped ${medLabel(medDialog.med!)}`, actions.stopMed(medDialog.med!)) : undefined}
-            onRestart={medDialog.med?.endDate ? () => notify(`Taking ${medLabel(medDialog.med!)} again`, actions.restartMed(medDialog.med!)) : undefined}
-            onDelete={medDialog.med ? () => notify(`Deleted ${medLabel(medDialog.med!)} and its history`, actions.deleteMed(medDialog.med!)) : undefined}
+            onStop={medDialog.med && !(medDialog.med.endDate && medDialog.med.endDate < toYmd(now)) ? () => notify(t('toast.stopped', { med: medLabel(medDialog.med!) }), actions.stopMed(medDialog.med!)) : undefined}
+            onRestart={medDialog.med?.endDate ? () => notify(t('toast.restarted', { med: medLabel(medDialog.med!) }), actions.restartMed(medDialog.med!)) : undefined}
+            onDelete={medDialog.med ? () => notify(t('toast.deletedMed', { med: medLabel(medDialog.med!) }), actions.deleteMed(medDialog.med!)) : undefined}
             onAddContact={(r) => setContact({ contact: null, role: r })}
           />
         )}
@@ -255,21 +260,22 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
             onSave={(status, at, note) => mark(doseDialog.target, status, at, note)}
           />
         )}
-        {count && <CountDialog med={count} left={supplyLeft(count, data.doses)} onClose={() => setCount(null)} onSave={(n, refills) => notify(`Counted ${medLabel(count)}`, actions.countSupply(count, n, refills))} />}
+        {count && <CountDialog med={count} left={supplyLeft(count, data.doses)} onClose={() => setCount(null)} onSave={(n, refills) => notify(t('toast.counted', { med: medLabel(count) }), actions.countSupply(count, n, refills))} />}
         {contact && (
           <ContactDialog
             contact={contact.contact}
             app={APP}
             roles={CONTACT_ROLES}
             role={contact.role}
-            namePlaceholder="Example Family Practice"
-            searchPlaceholder="Practice or pharmacy and town"
+            roleLabel={roleLabel}
+            namePlaceholder={t('contacts.namePlaceholder')}
+            searchPlaceholder={t('contacts.searchPlaceholder')}
             auth={user ? auth : null}
             canMarkPrivate={role === 'admin' || role === 'member'}
             onClose={() => setContact(null)}
             onSave={(input) => {
               actions.saveContact(contact.contact?.id ?? null, { ...input, private: contact.contact ? input.private : true });
-              if (!contact.contact) notify(`Added ${input.name.trim()}`);
+              if (!contact.contact) notify(t('common.added', { name: input.name.trim() }));
             }}
           />
         )}

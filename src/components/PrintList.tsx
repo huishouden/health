@@ -6,6 +6,9 @@ import { addDays, longDate, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
 import type { Dose, Med, Person } from '../lib/model';
 import { adherenceOf, doseText, isStopped, medLabel, scheduleText } from '../lib/meds';
 import { ageOn } from '../lib/people';
+import { roleLabel } from '../lib/contacts';
+import { t, useT } from '../i18n';
+import { compareText, numberFormat } from '@huishouden/pwa-kit/i18n';
 
 /** How far back stopped medicines are listed for the doctor. */
 const STOPPED_DAYS = 90;
@@ -19,7 +22,7 @@ export interface ListModel {
 }
 
 export function listModel(person: Person, meds: Med[], doses: Dose[], contacts: Contact[], now: number): ListModel {
-  const mine = meds.filter((m) => m.personId === person.id).sort((a, b) => Number(a.asNeeded) - Number(b.asNeeded) || medLabel(a).localeCompare(medLabel(b)));
+  const mine = meds.filter((m) => m.personId === person.id).sort((a, b) => Number(a.asNeeded) - Number(b.asNeeded) || compareText(medLabel(a), medLabel(b)));
   const since = addDays(toYmd(now), -STOPPED_DAYS);
   const current = mine.filter((m) => !isStopped(m, now));
   const stopped = mine.filter((m) => isStopped(m, now) && m.endDate! >= since);
@@ -37,33 +40,50 @@ export function listModel(person: Person, meds: Med[], doses: Dose[], contacts: 
 
 const contactName = (contacts: Contact[], id?: string) => (id ? contacts.find((c) => c.id === id)?.name ?? '' : '');
 
+/** "92%" ("92 %" in Dutch) from a whole percentage. */
+const percent = (n: number) => numberFormat({ style: 'percent', maximumFractionDigits: 0 }).format(n / 100);
+
+/** "Born March 8, 1944 (82)". */
+const bornText = (p: Person, today: string) => {
+  if (!p.birthDate) return '';
+  const age = ageOn(p, today);
+  return age !== null ? t('print.bornAge', { date: longDate(p.birthDate), age }) : t('print.born', { date: longDate(p.birthDate) });
+};
+
+/** "Dr. Hart (Doctor): (555) 010-2231". */
+const contactLine = (c: Contact) => `${c.name}${c.role ? ` (${roleLabel(c.role)})` : ''}${c.phone ? `: ${c.phone}` : ''}`;
+
 /** The list as plain text, for sharing by message or email. */
 export function listText(l: ListModel, now: number): string {
   const today = toYmd(now);
-  const age = ageOn(l.person, today);
   const lines = [
-    `Medicines for ${l.person.name}`,
-    [l.person.birthDate ? `Born ${longDate(l.person.birthDate)}${age !== null ? ` (${age})` : ''}` : '', `As of ${longDate(today)}`].filter(Boolean).join('. '),
-    `Allergies: ${l.person.allergies || 'none recorded'}`,
+    t('print.title', { name: l.person.name }),
+    [bornText(l.person, today), t('print.asOf', { date: longDate(today) })].filter(Boolean).join('. '),
+    l.person.allergies ? t('today.allergies', { allergies: l.person.allergies }) : t('print.noAllergies'),
     '',
-    ...l.current.map((m) => `- ${medLabel(m)}: ${[doseText(m), scheduleText(m)].filter(Boolean).join(', ')}${m.prescriberId ? `. Prescribed by ${contactName(l.contacts, m.prescriberId)}` : ''}. Since ${longDate(m.startDate)}${m.endDate ? `, until ${longDate(m.endDate)}` : ''}.`),
+    ...l.current.map((m) => {
+      const what = [doseText(m), scheduleText(m)].filter(Boolean).join(', ');
+      const by = m.prescriberId ? ` ${t('print.prescribedByLine', { name: contactName(l.contacts, m.prescriberId) })}` : '';
+      const since = m.endDate ? t('print.sinceUntil', { since: longDate(m.startDate), until: longDate(m.endDate) }) : t('print.since', { date: longDate(m.startDate) });
+      return `- ${medLabel(m)}: ${what}.${by} ${since}`;
+    }),
   ];
-  if (l.stopped.length) lines.push('', 'Stopped recently:', ...l.stopped.map((m) => `- ${medLabel(m)}, stopped ${longDate(m.endDate!)}`));
-  if (l.adherence !== null) lines.push('', `Doses given, last 30 days: ${l.adherence}%`);
-  if (l.contacts.length) lines.push('', ...l.contacts.map((c) => `${c.name}${c.role ? ` (${c.role})` : ''}${c.phone ? `: ${c.phone}` : ''}`));
+  if (l.stopped.length) lines.push('', t('print.stoppedRecently'), ...l.stopped.map((m) => `- ${t('print.stoppedItem', { med: medLabel(m), date: longDate(m.endDate!) })}`));
+  if (l.adherence !== null) lines.push('', t('print.adherenceText', { percent: percent(l.adherence) }));
+  if (l.contacts.length) lines.push('', ...l.contacts.map(contactLine));
   return lines.join('\n');
 }
 
 /** A medication list to print or share for a doctor's visit: one page, plain, readable on paper. */
 export function PrintList({ list, now, onClose }: { list: ListModel; now: number; onClose: () => void }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const today = toYmd(now);
   const { person } = list;
-  const age = ageOn(person, today);
   const share = async () => {
     const text = listText(list, now);
     if (navigator.share) {
-      await navigator.share({ title: `Medicines for ${person.name}`, text }).catch(() => {});
+      await navigator.share({ title: t('print.title', { name: person.name }), text }).catch(() => {});
       return;
     }
     await navigator.clipboard?.writeText(text);
@@ -77,11 +97,11 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
     <table className="mt-2 w-full border-collapse text-left text-base phone:block">
       <thead className="phone:sr-only">
         <tr className="border-b-2 border-ink text-sm">
-          <th className="py-1.5 pr-3 font-semibold">Medicine</th>
-          <th className="py-1.5 pr-3 font-semibold">Dose</th>
-          <th className="py-1.5 pr-3 font-semibold">When</th>
-          <th className="py-1.5 pr-3 font-semibold">Prescribed by</th>
-          <th className="py-1.5 font-semibold">Since</th>
+          <th className="py-1.5 pr-3 font-semibold">{t('history.medicine')}</th>
+          <th className="py-1.5 pr-3 font-semibold">{t('print.dose')}</th>
+          <th className="py-1.5 pr-3 font-semibold">{t('print.when')}</th>
+          <th className="py-1.5 pr-3 font-semibold">{t('print.prescribedBy')}</th>
+          <th className="py-1.5 font-semibold">{t('print.sinceHeader')}</th>
         </tr>
       </thead>
       <tbody className="phone:block phone:border-t-2 phone:border-ink">
@@ -93,15 +113,15 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
               <td className="py-2 pr-3 phone:block phone:p-0">{doseText(m)}</td>
               <td className="py-2 pr-3 phone:block phone:p-0">
                 {scheduleText(m)}
-                {m.endDate ? `, until ${longDate(m.endDate, today)}` : ''}
+                {m.endDate ? `, ${t('print.until', { date: longDate(m.endDate, today) })}` : ''}
                 {m.notes && <span className="block text-sm text-muted">{m.notes}</span>}
               </td>
               <td className={`py-2 pr-3 phone:p-0 ${by ? 'phone:block' : 'phone:hidden'}`}>
-                <span className="hidden phone:inline">Prescribed by </span>
+                <span className="hidden phone:inline">{t('print.prescribedBy')} </span>
                 {by}
               </td>
               <td className="py-2 whitespace-nowrap phone:block phone:p-0 phone:whitespace-normal phone:text-muted">
-                <span className="hidden phone:inline">Since </span>
+                <span className="hidden phone:inline">{t('print.sinceHeader')} </span>
                 {longDate(m.startDate, today)}
               </td>
             </tr>
@@ -112,60 +132,60 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
   );
   return (
     <section
-      aria-label={`Medicine list for ${person.name}`}
+      aria-label={t('print.listFor', { name: person.name })}
       data-hh-print=""
       className="min-w-0 rounded-2xl border border-line bg-surface p-4 shadow-sm [overflow-wrap:break-word] sm:p-6 print:text-black"
     >
       <div className="mb-4 flex flex-wrap gap-2 print:hidden">
         <button type="button" className={primaryButton} onClick={() => window.print()}>
-          <Printer size={18} /> Print or save PDF
+          <Printer size={18} /> {t('print.print')}
         </button>
         <button type="button" className={secondaryButton} onClick={() => void share()}>
-          <Share2 size={18} /> {copied ? 'Copied' : 'Share'}
+          <Share2 size={18} /> {copied ? t('print.copied') : t('print.share')}
         </button>
         <button type="button" className={`${ghostButton} ml-auto`} onClick={onClose}>
-          <X size={18} /> Close
+          <X size={18} /> {t('common.close')}
         </button>
       </div>
-      <h1 className="text-2xl font-semibold text-ink">Medicines for {person.name}</h1>
+      <h1 className="text-2xl font-semibold text-ink">{t('print.title', { name: person.name })}</h1>
       <p className="mt-1 text-base text-ink-soft">
-        {[person.birthDate ? `Born ${longDate(person.birthDate)}${age !== null ? ` (${age})` : ''}` : '', `As of ${longDate(today)}`].filter(Boolean).join(' · ')}
+        {[bornText(person, today), t('print.asOf', { date: longDate(today) })].filter(Boolean).join(' · ')}
       </p>
-      <p className="mt-1 text-base font-medium text-ink">Allergies: {person.allergies || 'none recorded'}</p>
+      <p className="mt-1 text-base font-medium text-ink">{person.allergies ? t('today.allergies', { allergies: person.allergies }) : t('print.noAllergies')}</p>
       {scheduled.length > 0 && (
         <>
-          <h2 className="mt-5 text-lg font-semibold text-ink">Taken regularly</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">{t('print.regular')}</h2>
           {table(scheduled)}
         </>
       )}
       {asNeeded.length > 0 && (
         <>
-          <h2 className="mt-5 text-lg font-semibold text-ink">When needed</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">{t('today.whenNeeded')}</h2>
           {table(asNeeded)}
         </>
       )}
-      {list.current.length === 0 && <p className="mt-4 text-base">No medicines at the moment.</p>}
+      {list.current.length === 0 && <p className="mt-4 text-base">{t('today.noMeds')}</p>}
       {list.stopped.length > 0 && (
         <>
-          <h2 className="mt-5 text-lg font-semibold text-ink">Stopped in the last three months</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">{t('print.stoppedTitle')}</h2>
           <ul className="mt-1 list-disc pl-5 text-base">
             {list.stopped.map((m) => (
               <li key={m.id}>
-                {medLabel(m)}, stopped {longDate(m.endDate!, today)}
+                {t('print.stoppedItem', { med: medLabel(m), date: longDate(m.endDate!, today) })}
               </li>
             ))}
           </ul>
         </>
       )}
-      {list.adherence !== null && <p className="mt-5 text-base text-ink-soft">Doses given in the last 30 days: {list.adherence}%.</p>}
+      {list.adherence !== null && <p className="mt-5 text-base text-ink-soft">{t('print.adherence', { percent: percent(list.adherence) })}</p>}
       {list.contacts.length > 0 && (
         <>
-          <h2 className="mt-5 text-lg font-semibold text-ink">Doctors and pharmacy</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">{t('print.doctors')}</h2>
           <ul className="mt-1 text-base">
             {list.contacts.map((c) => (
               <li key={c.id}>
                 {c.name}
-                {c.role ? ` (${c.role})` : ''}
+                {c.role ? ` (${roleLabel(c.role)})` : ''}
                 {c.phone && (
                   <>
                     , <span className="whitespace-nowrap">{c.phone}</span>

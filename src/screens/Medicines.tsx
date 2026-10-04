@@ -8,6 +8,8 @@ import { daysLeft, daysLeftText, doseText, isCurrent, isStopped, medLabel, refil
 import { canEdit, canGive } from '../lib/people';
 import type { HealthStore } from '../data/actions';
 import { Avatar, PersonChips } from '../components/Avatar';
+import { useT } from '../i18n';
+import { capitalize, compareText, getLang } from '@huishouden/pwa-kit/i18n';
 
 export interface MedicinesProps {
   store: HealthStore;
@@ -25,7 +27,11 @@ export interface MedicinesProps {
 
 const contactName = (contacts: Contact[], id?: string) => (id ? contacts.find((c) => c.id === id)?.name : undefined);
 
+/** The unit the household typed ("tablet"), with an English plural only in English: it is their word, not ours. */
+export const unitWords = (unit: string, n: number) => (getLang() === 'en' && n !== 1 && unit !== 'ml' ? `${unit}s` : unit);
+
 export function Medicines({ store, people, selected, onSelect, highlight, onAdd, onEdit, onCount, onOrdered, onPrint, empty }: MedicinesProps) {
+  const t = useT();
   const { now } = useClock();
   if (people.length === 0) return <>{empty}</>;
   const shown = selected ? people.filter((p) => p.id === selected) : people;
@@ -33,27 +39,27 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
     <div className="space-y-4">
       <PersonChips people={people} selected={selected} onSelect={onSelect} />
       {shown.map((p) => {
-        const meds = store.data.meds.filter((m) => m.personId === p.id).sort((a, b) => medLabel(a).localeCompare(medLabel(b)));
+        const meds = store.data.meds.filter((m) => m.personId === p.id).sort((a, b) => compareText(medLabel(a), medLabel(b)));
         const current = meds.filter((m) => !isStopped(m, now));
         const stopped = meds.filter((m) => isStopped(m, now));
         const editable = canEdit(p, store.role, store.me);
         return (
-          <section key={p.id} aria-label={`${p.name}'s medicines`} className={`${cardClass} p-5 sm:p-6`}>
+          <section key={p.id} aria-label={t('medicines.of', { name: p.name })} className={`${cardClass} p-5 sm:p-6`}>
             <div className="flex flex-wrap items-center gap-3">
               <Avatar person={p} people={people} size={44} />
-              <h2 className="min-w-0 flex-1 text-xl font-semibold text-ink">{p.name}</h2>
+              <h2 className="min-w-0 flex-1 basis-40 text-xl font-semibold text-ink">{p.name}</h2>
               <button type="button" className={ghostButton} onClick={() => onPrint(p.id)}>
-                <Printer size={18} /> List for the doctor
+                <Printer size={18} /> {t('medicines.printList')}
               </button>
               {editable && (
                 <button type="button" className={primaryButton} onClick={() => onAdd(p.id)}>
-                  <Plus size={18} /> Add medicine
+                  <Plus size={18} /> {t('medicines.add')}
                 </button>
               )}
             </div>
-            {p.allergies && <p className="mt-2 text-base text-ink-soft">Allergies: {p.allergies}</p>}
+            {p.allergies && <p className="mt-2 text-base text-ink-soft">{t('today.allergies', { allergies: p.allergies })}</p>}
             {current.length === 0 ? (
-              <p className="mt-3 text-base text-muted">No medicines yet.{editable ? ' Add one, or scan a pharmacy label to fill it in.' : ''}</p>
+              <p className="mt-3 text-base text-muted">{editable ? t('medicines.emptyEditable') : t('medicines.empty')}</p>
             ) : (
               <ul className="mt-3 divide-y divide-line">
                 {current.map((m) => (
@@ -63,16 +69,16 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
             )}
             {stopped.length > 0 && (
               <details className="mt-3">
-                <summary className="cursor-pointer select-none py-2 text-sm font-medium text-muted">Stopped ({stopped.length})</summary>
+                <summary className="cursor-pointer select-none py-2 text-sm font-medium text-muted">{t('medicines.stoppedCount', { count: stopped.length })}</summary>
                 <ul className="divide-y divide-line">
                   {stopped.map((m) => (
                     <li key={m.id} className="flex items-center gap-3 py-2">
                       <span className="min-w-0 flex-1 text-base text-ink-soft">
-                        {medLabel(m)} <span className="text-sm text-muted">stopped {longDate(m.endDate!, toYmd(now))}</span>
+                        {medLabel(m)} <span className="text-sm text-muted">{t('medicines.stoppedOn', { date: longDate(m.endDate!, toYmd(now)) })}</span>
                       </span>
                       {editable && (
                         <button type="button" className={ghostButton} onClick={() => onEdit(m)}>
-                          Edit
+                          {t('common.edit')}
                         </button>
                       )}
                     </li>
@@ -88,6 +94,7 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
 }
 
 function MedRow({ med: m, store, person, highlight, onEdit, onCount, onOrdered }: { med: Med; store: HealthStore; person: Person; highlight: boolean; onEdit?: () => void; onCount: () => void; onOrdered: () => void }) {
+  const t = useT();
   const { now } = useClock();
   const { doses, contacts } = store.data;
   const left = supplyLeft(m, doses);
@@ -104,37 +111,38 @@ function MedRow({ med: m, store, person, highlight, onEdit, onCount, onOrdered }
           <p className="text-lg font-medium text-ink">{medLabel(m)}</p>
           <p className="text-base text-ink-soft">{[doseText(m), scheduleText(m)].filter(Boolean).join(' · ')}</p>
           <p className="text-sm text-muted">
-            {[upcoming ? `Starts ${longDate(m.startDate, toYmd(now))}` : '', m.endDate ? `Until ${longDate(m.endDate, toYmd(now))}` : '', who].filter(Boolean).join(' · ')}
+            {[upcoming ? t('medicines.starts', { date: longDate(m.startDate, toYmd(now)) }) : '', m.endDate ? t('medicines.until', { date: longDate(m.endDate, toYmd(now)) }) : '', who].filter(Boolean).join(' · ')}
           </p>
           {m.notes && <p className="mt-1 text-sm text-muted">{m.notes}</p>}
           {(left !== null || m.refills !== undefined) && (
             <p className={`mt-1 text-sm ${due ? 'font-medium text-attention' : 'text-muted'}`}>
-              {[
-                left !== null ? `${Math.round(left)}${m.doseUnit ? ` ${m.doseUnit}${Math.round(left) === 1 || m.doseUnit === 'ml' ? '' : 's'}` : ''} left` : '',
-                days !== null ? daysLeftText(days).toLowerCase() : '',
-                m.refills !== undefined ? `${m.refills} ${m.refills === 1 ? 'refill' : 'refills'}` : '',
-                ordered ? 'refill ordered' : '',
-              ]
-                .filter(Boolean)
-                .join(', ')
-                .replace(/^./, (c) => c.toUpperCase())}
+              {capitalize(
+                [
+                  left !== null ? (m.doseUnit ? t('medicines.unitsLeft', { count: Math.round(left), unit: unitWords(m.doseUnit, Math.round(left)) }) : t('medicines.left', { count: Math.round(left) })) : '',
+                  days !== null ? daysLeftText(days).toLowerCase() : '',
+                  m.refills !== undefined ? t('medicines.refills', { count: m.refills }) : '',
+                  ordered ? t('medicines.refillOrderedLower') : '',
+                ]
+                  .filter(Boolean)
+                  .join(', '),
+              )}
             </p>
           )}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {due && may && (
             <button type="button" className={secondaryButton} onClick={onOrdered}>
-              Refill ordered
+              {t('medicines.refillOrdered')}
             </button>
           )}
           {may && left !== null && (
             <button type="button" className={ghostButton} onClick={onCount}>
-              Count
+              {t('medicines.count')}
             </button>
           )}
           {onEdit && (
-            <button type="button" className={ghostButton} aria-label={`Edit ${medLabel(m)}`} onClick={onEdit}>
-              <Pencil size={18} /> Edit
+            <button type="button" className={ghostButton} aria-label={t('a11y.edit', { name: medLabel(m) })} onClick={onEdit}>
+              <Pencil size={18} /> {t('common.edit')}
             </button>
           )}
         </div>

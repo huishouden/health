@@ -16,10 +16,12 @@ import type { PersonalAgendaInput } from '@huishouden/pwa-kit/agenda';
 import type { PersonalTodoInput } from '@huishouden/pwa-kit/todos';
 import type { PersonalReminderInput } from '@huishouden/pwa-kit/reminders';
 import { reminderId } from '@huishouden/pwa-kit/reminders';
-import { addDays, clockWords, DAY, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
+import { addDays, atClock, clockWords, DAY, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
+import { capitalize } from '@huishouden/pwa-kit/i18n';
 import type { Dose, Med, Person } from './model';
 import { audienceOf, escalateTo, mainCarer, type HouseholdLike } from './people';
 import { byTime, daysLeft, daysLeftText, doseId, doseText, isStopped, lowOn, medLabel, refillDue, rowsBetween } from './meds';
+import { t } from '../i18n';
 
 export const APP = 'health';
 
@@ -33,7 +35,7 @@ export interface PublishInput {
   url: (path: string) => string;
 }
 
-const medicines = (n: number) => (n === 1 ? '1 medicine' : `${n} medicines`);
+const medicines = (n: number) => t('publish.medicines', { count: n });
 const personPath = (p: Person) => `?tab=today&person=${encodeURIComponent(p.id)}`;
 const handled = (state: string) => state === 'given' || state === 'skipped';
 
@@ -55,7 +57,7 @@ export function agendaItems(input: PublishInput): PersonalAgendaInput[] {
     byTime(rowsBetween(meds, doses, from, to, input.now)).map((g) => ({
       ref: `dose:${person.id}:${g.rows[0].slot.key}`,
       kind: 'medicine' as const,
-      title: `Medicine for ${person.name}`,
+      title: t('publish.medicineFor', { name: person.name }),
       start: g.at,
       allDay: false,
       detail: medicines(g.rows.length),
@@ -84,17 +86,17 @@ export function todoItems(input: PublishInput): PersonalTodoInput[] {
           id: doseId(r.med.id, r.slot.key),
           data: { personId: person.id, medId: r.med.id, slot: r.slot.key, at: r.slot.at, status, by: '$me', createdAt: '$now' },
         }));
-      const day = toYmd(g.at) === toYmd(now) ? '' : ' yesterday';
+      const today = toYmd(g.at) === toYmd(now);
       out.push({
         ref: `missed:${person.id}:${g.rows[0].slot.key}`,
-        title: `Not marked: ${clockWords(g.time)}${day} medicine for ${person.name}`,
-        detail: `${medicines(missed.length)} not marked as given`,
+        title: t(today ? 'publish.notMarked' : 'publish.notMarkedYesterday', { time: clockWords(g.time), name: person.name }),
+        detail: t('publish.notMarkedDetail', { count: missed.length }),
         createdAt: g.at,
         due: g.at,
         who: person.name,
         url: input.url(personPath(person)),
-        done: { label: 'Given', ops: ops('given'), ...who },
-        cancel: { label: 'Skipped', ops: ops('skipped'), ...who },
+        done: { label: t('dose.given'), ops: ops('given'), ...who },
+        cancel: { label: t('dose.skipped'), ops: ops('skipped'), ...who },
         audience,
       });
     }
@@ -104,13 +106,13 @@ export function todoItems(input: PublishInput): PersonalTodoInput[] {
       const low = lowOn(m, doses, now);
       out.push({
         ref: `refill:${person.id}:${m.id}`,
-        title: `Refill a medicine for ${person.name}`,
-        detail: [daysLeftText(days), m.refills !== undefined ? `${m.refills} ${m.refills === 1 ? 'refill' : 'refills'} left` : ''].filter(Boolean).join(', '),
+        title: t('publish.refillFor', { name: person.name }),
+        detail: [daysLeftText(days), m.refills !== undefined ? t('meds.refillsLeft', { count: m.refills }) : ''].filter(Boolean).join(', '),
         createdAt: low ? Math.min(now, ymdToTime(low)) : now,
         who: person.name,
         url: input.url(`?tab=medicines&person=${encodeURIComponent(person.id)}&med=${encodeURIComponent(m.id)}`),
         done: {
-          label: 'Ordered',
+          label: t('publish.ordered'),
           ops: [{ col: `healthPeople/${person.id}/meds`, id: m.id, data: { refillOrderedAt: '$now', updatedAt: '$now' }, merge: true }],
           roles: ['admin'],
           ...(givers.length ? { emails: givers } : {}),
@@ -142,8 +144,9 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
         out.push({
           id: reminderId(`health:dose:${person.id}`, g.at),
           app: APP,
-          title: `Medicine for ${person.name}`,
-          body: `${clockWords(g.time)}: ${names}`,
+          title: t('publish.medicineFor', { name: person.name }),
+          // The time the reader's way ("At 8 PM", "A las 8 p.m.", "Om 20:00"), then the medicines.
+          body: t('publish.doseBody', { at: capitalize(atClock(g.time)), names }),
           at: g.at,
           url,
           recipients: [main],
@@ -158,8 +161,8 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
       out.push({
         id: reminderId(`health:late:${person.id}`, at),
         app: APP,
-        title: `Not marked yet: medicine for ${person.name}`,
-        body: `The ${clockWords(g.time)} dose hasn't been marked: ${names}`,
+        title: t('publish.lateTitle', { name: person.name }),
+        body: t('publish.lateBody', { time: clockWords(g.time), names }),
         at,
         url,
         recipients: others,
@@ -178,8 +181,8 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
       out.push({
         id: reminderId(`health:refill:${m.id}`, at),
         app: APP,
-        title: `Refill soon for ${person.name}`,
-        body: `${medLabel(m)}: about a week left${m.refills !== undefined ? `, ${m.refills} ${m.refills === 1 ? 'refill' : 'refills'} left` : ''}.`,
+        title: t('publish.refillSoon', { name: person.name }),
+        body: m.refills !== undefined ? t('publish.refillBodyRefills', { med: medLabel(m), count: m.refills }) : t('publish.refillBody', { med: medLabel(m) }),
         at,
         url: input.url(`?tab=medicines&person=${encodeURIComponent(person.id)}&med=${encodeURIComponent(m.id)}`),
         recipients: [main],

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { syncPersonalAgenda } from '@huishouden/pwa-kit/agenda';
-import { syncPersonalTodos } from '@huishouden/pwa-kit/todos';
-import { syncPersonalReminders } from '@huishouden/pwa-kit/reminders';
+import { localizeAgenda, syncPersonalAgenda } from '@huishouden/pwa-kit/agenda';
+import { localizeTodos, syncPersonalTodos } from '@huishouden/pwa-kit/todos';
+import { localizeReminders, syncPersonalReminders } from '@huishouden/pwa-kit/reminders';
 import { reportError, setSensitiveWords } from '@huishouden/pwa-kit/observability';
 import { appUrl } from '@huishouden/pwa-kit/site';
 import type { Role } from '@huishouden/pwa-kit/roles';
@@ -35,9 +35,10 @@ export function useHealthSync(householdId: string, me: string, data: HealthData,
       const { data: d, household: h } = latest.current;
       const input = { people: d.people, meds: d.meds, doses: d.doses, household: h, now: Date.now(), url: (path: string) => appUrl(import.meta.env.BASE_URL, path) };
       try {
-        await syncPersonalAgenda(db, householdId, APP, agendaItems(input), { by: me });
-        await syncPersonalTodos(db, householdId, APP, todoItems(input), { by: me });
-        await syncPersonalReminders(db, householdId, APP, reminderItems(input), me);
+        // Every language's words, so each reader sees the agenda, to-dos and notifications in their own.
+        await syncPersonalAgenda(db, householdId, APP, await localizeAgenda(() => agendaItems(input)), { by: me });
+        await syncPersonalTodos(db, householdId, APP, await localizeTodos(() => todoItems(input)), { by: me });
+        await syncPersonalReminders(db, householdId, APP, await localizeReminders(() => reminderItems(input)), me);
       } catch (e) {
         if (!cancelled) reportError(e, { where: 'publish health' });
       }
