@@ -91,7 +91,7 @@ function DateFields({ label, value, onChange, invalid }: { label: string; value:
           </select>
         )}
       </div>
-      {invalid && <p className="mt-1 text-sm text-attention">{t('conditionDialog.badDate')}</p>}
+      {invalid && <p className="mt-1 text-sm text-error">{t('conditionDialog.badDate')}</p>}
     </fieldset>
   );
 }
@@ -157,7 +157,8 @@ export function ConditionDialog({ condition, person, contacts, meds, visits, now
   const doctor = contacts.find((c) => c.id === doctorId);
   const clinic = contacts.find((c) => c.id === clinicId);
   const medChoices = meds.filter((m) => !isStopped(m, now) || medIds.includes(m.id)).sort((a, b) => compareText(medLabel(a), medLabel(b)));
-  const visitChoices = [...visits].sort((a, b) => b.at - a.at).slice(0, 12);
+  // The newest dozen, and every visit already linked, so each can be unlinked.
+  const visitChoices = [...visits].sort((a, b) => b.at - a.at).filter((v, i) => i < 12 || visitIds.includes(v.id));
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
   const save = () => {

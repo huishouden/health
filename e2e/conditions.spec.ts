@@ -22,7 +22,7 @@ test('each person by medical area, current areas open with counts, resolved ones
   await expect(areas).toHaveText([/^Cardiology1/, /^Endocrinology2/, /^Ophthalmology1/, /^Orthopedics1/]);
   const diabetes = ria.locator('li', { hasText: 'Type 2 diabetes' });
   await expect(diabetes).toContainText('Managed');
-  await expect(diabetes).toContainText('Diagnosed March 2019 · by Dr. Lena Hart, 1.2 mi from home');
+  await expect(diabetes).toContainText('Diagnosed April 2029 · by Dr. Lena Hart, 1.2 mi from home');
   await expect(diabetes).toContainText('Treated with Metformin 500 mg');
   await expect(diabetes).toContainText('ICD-10 E11.9');
   const noor = card(page, 'Noor');
@@ -45,10 +45,11 @@ test('the household by medical area, each condition saying whose it is', async (
 
 test('adding one: the lookup fills the name, the ICD-10 code and the area; the medicine says what it is for', async ({ page }) => {
   const asked: string[] = [];
+  const referers: (string | undefined)[] = [];
   await page.route(LOOKUP, async (route) => {
     const url = new URL(route.request().url());
     asked.push(url.searchParams.get('terms') ?? '');
-    expect(route.request().headers()['referer']).toBeUndefined();
+    referers.push(route.request().headers()['referer']);
     if (url.pathname.includes('/conditions/')) await route.fulfill({ json: [1, ['1'], { icd10cm_codes: ['M54.12'] }, [['Radiculopathy']]] });
     else await route.fulfill({ json: [1, ['M54.12'], null, [['M54.12', 'Radiculopathy, cervical region']]] });
   });
@@ -72,7 +73,9 @@ test('adding one: the lookup fills the name, the ICD-10 code and the area; the m
   await expect(neuro.locator('summary')).toContainText('2');
   await expect(neuro.locator('li', { hasText: 'Radiculopathy, cervical region' })).toContainText('Diagnosed September 2030 · by Dr. Ines Mol');
   // Only the words typed went out.
+  expect(asked.length).toBeGreaterThan(0);
   expect(asked.every((q) => q === 'cervical radic')).toBe(true);
+  expect(referers.every((r) => r === undefined)).toBe(true);
   await page.getByRole('button', { name: 'Medicines' }).click();
   await expect(page.locator('li', { hasText: 'Levothyroxine' })).toContainText('For Radiculopathy, cervical region and Underactive thyroid');
 });
@@ -110,6 +113,7 @@ test('a visit names its medical area and, for those who may see it, its conditio
 test('a helper carer sees no conditions: no tab, nothing on medicines, visits or the list', async ({ page }) => {
   await open(page, './?as=helper&tab=medicines');
   await expect(page.getByRole('region', { name: "Oma Ria's medicines" })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Visits' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Conditions' })).toHaveCount(0);
   await expect(page.getByText('For Type 2 diabetes')).toHaveCount(0);
   await page.getByRole('button', { name: 'Visits' }).click();
@@ -117,7 +121,10 @@ test('a helper carer sees no conditions: no tab, nothing on medicines, visits or
   await expect(eyes).toContainText('Ophthalmology');
   await expect(eyes).not.toContainText('Cataract');
   await page.goto('./?as=helper&print=demo-person-ria');
-  await expect(page.getByRole('region', { name: 'Medicine list for Oma Ria' })).not.toContainText('Conditions');
+  const list = page.getByRole('region', { name: 'Medicine list for Oma Ria' });
+  await expect(list).toContainText('Metformin');
+  await expect(list).not.toContainText('Conditions');
   await page.goto('./?as=helper&tab=conditions');
+  await expect(page.getByRole('region', { name: 'Needs doing' })).toBeVisible();
   await expect(page.getByText('Type 2 diabetes')).toHaveCount(0);
 });

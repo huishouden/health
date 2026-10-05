@@ -71,7 +71,7 @@ export function Conditions({ store, people, selected, onSelect, highlight, onAdd
             <section key={p.id} aria-label={t('conditions.of', { name: p.name })} className={`${cardClass} p-5 sm:p-6`}>
               <div className="flex flex-wrap items-center gap-3">
                 <Avatar person={p} people={people} size={44} />
-                <h2 className="min-w-0 flex-1 basis-40 text-xl font-semibold text-ink">{p.name}</h2>
+                <h2 translate="no" className="min-w-0 flex-1 basis-40 text-xl font-semibold text-ink">{p.name}</h2>
                 {keeps && (
                   <button type="button" className={primaryButton} onClick={() => onAdd(p.id)}>
                     <Plus size={18} /> {t('conditions.add')}
@@ -167,7 +167,7 @@ function ConditionRow({ condition: c, store, person, people, withPerson, highlig
       {withPerson && <Avatar person={person} people={people} size={36} />}
       <div className="min-w-0 flex-1 space-y-1">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-lg leading-snug font-semibold text-ink [overflow-wrap:anywhere]">{c.name}</span>
+          <span translate="no" className="text-lg leading-snug font-semibold text-ink [overflow-wrap:anywhere]">{c.name}</span>
           {withPerson && person && <span className="text-base text-muted">{t('today.forName', { name: person.name })}</span>}
           <span className={`rounded-full border px-2.5 py-0.5 text-sm font-medium ${STATUS_CLASS[c.status]}`}>{conditionStatusLabel(c.status)}</span>
           {c.severity && <span className="text-sm text-muted">{severityLabel(c.severity)}</span>}
@@ -189,7 +189,7 @@ function ConditionRow({ condition: c, store, person, people, withPerson, highlig
             ))}
           </p>
         )}
-        {c.notes && <p className="text-sm text-ink-soft [overflow-wrap:anywhere] whitespace-pre-line">{c.notes}</p>}
+        {c.notes && <p translate="no" className="text-sm text-ink-soft [overflow-wrap:anywhere] whitespace-pre-line">{c.notes}</p>}
         {c.icd10 && <p className="text-sm text-muted">{t('conditions.icd10', { code: c.icd10 })}</p>}
       </div>
       {editable && (
