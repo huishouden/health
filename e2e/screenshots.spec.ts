@@ -63,3 +63,17 @@ test('phone: medicines', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await captureScreenshot(page, 'phone-medicines', { path: './?tab=medicines&person=demo-person-ria', fixedTime, prepare: (p) => expect(p.getByText('6 tablets left')).toBeVisible() });
 });
+
+test('phone: scan the label offers a photo from the camera or the library', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await captureScreenshot(page, 'phone-scan-label', {
+    path: './?tab=medicines&person=demo-person-ria',
+    fixedTime,
+    prepare: async (p) => {
+      await p.getByRole('button', { name: 'Add medicine' }).click();
+      const dialog = p.getByRole('dialog', { name: 'Medicine for Oma Ria' });
+      await expect(dialog.getByRole('button', { name: 'Take a photo' })).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Choose photos' })).toBeVisible();
+    },
+  });
+});

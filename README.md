@@ -93,7 +93,9 @@ writes for the rest of the suite names its audience, the household's admins and 
 | Notifications (`personalReminders`, sent by [huishouden/notify](https://github.com/huishouden/notify)) | At each dose time to the main carer; if still not marked after the medicine's window (30 minutes unless changed), to the other carers; a week before a medicine runs out | The medicine's name, on the recipients' own devices |
 
 Every device that can see a person keeps these current on open and a few seconds after each change,
-a week of reminders ahead. Marking a dose removes its "not marked" notification before it is sent.
+a week of reminders ahead. Marking a dose removes its "not marked" notification before it is sent,
+also when it is marked on another phone or from the portal's To-do list (the sender checks the dose
+records first), and ordering a refill drops its refill reminder.
 
 ## Data
 

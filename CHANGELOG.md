@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.9.0](https://github.com/huishouden/health/compare/v1.8.0...v1.9.0) (2026-10-05)
+
+### Features
+
+* hashed assets from the suite's asset CDN (pwa-kit 0.100.0) ([120774f](https://github.com/huishouden/health/commit/120774f797e109613281985c51dd882aa8689181))
+
+## [1.8.0](https://github.com/huishouden/health/compare/v1.7.1...v1.8.0) (2026-10-05)
+
+### Features
+
+* **scan:** Scan the label takes a photo, a chosen photo, paste, drop and several; Share to Health (kit 0.99.0) ([962e0c0](https://github.com/huishouden/health/commit/962e0c00551c56ad4dc0d4a8852eabbf33906c3b))
+
+### Bug Fixes
+
+* **scan:** a viewer who may not add medicines is told so when a photo is shared ([4d7c8b4](https://github.com/huishouden/health/commit/4d7c8b4323a189ed92efbbf26feaad81aeb53c40))
+
+## [1.7.1](https://github.com/huishouden/health/compare/v1.7.0...v1.7.1) (2026-10-05)
+
+### Other
+
+* Maintenance
+
+## [1.7.0](https://github.com/huishouden/health/compare/v1.6.2...v1.7.0) (2026-10-05)
+
+### Features
+
+* **reminders:** dose and refill reminders name the doses or the medicine, and stop unsent once the dose is marked given or skipped (on any carer's phone or the portal's To-do list) or the refill ordered (kit 0.98.2) ([6382317](https://github.com/huishouden/health/commit/638231789523575454e7ed1057f37b6c0aa949c9))
+
+### Other
+
+* role coverage and wording for reminder sources ([c27a3b4](https://github.com/huishouden/health/commit/c27a3b40544cd70dce3ac0553a7f58c3d58dcae3))
+* docs, review: reminders that stop once done elsewhere ([9c943d3](https://github.com/huishouden/health/commit/9c943d31544d7e527d0ce48230e6bb389a4c58ff))
+
 ## [1.6.2](https://github.com/huishouden/health/compare/v1.6.1...v1.6.2) (2026-10-05)
 
 ### Tests

@@ -10,6 +10,7 @@ import { ContactDialog } from '@huishouden/pwa-kit/react/contacts';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
 import { cardClass, primaryButton, Toast, type ToastState } from '@huishouden/pwa-kit/react/ui';
 import { personName } from '@huishouden/pwa-kit/people';
+import { clearSharedImages, readSharedImages } from '@huishouden/pwa-kit/shared-images';
 import { toYmd } from '@huishouden/pwa-kit/time';
 import type { Med, Person, Visit } from './lib/model';
 import { fromCalendar } from './lib/visits';
@@ -84,7 +85,9 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const [draftQueue, setDraftQueue] = useState<VisitDraft[]>([]);
   const calendarSearch = useCalendarSearch(auth, 'Health');
   const [personDialog, setPersonDialog] = useState<{ person: Person | null } | null>(null);
-  const [medDialog, setMedDialog] = useState<{ med: Med | null; personId: string } | null>(null);
+  const [medDialog, setMedDialog] = useState<{ med: Med | null; personId: string; images?: File[] } | null>(null);
+  // Photos shared in from the gallery (Share → Health) wait here until there is a person to add a medicine for.
+  const [sharedImages, setSharedImages] = useState<File[] | null>(null);
   const [doseDialog, setDoseDialog] = useState<{ target: Target; warning?: string | null; initial?: 'given' | 'skipped' } | null>(null);
   const [count, setCount] = useState<Med | null>(null);
   const [contact, setContact] = useState<{ contact: Contact | null; role?: string } | null>(null);
@@ -93,6 +96,14 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   useEffect(() => {
     document.title = t('app.documentTitle');
   }, [t]);
+
+  useEffect(() => {
+    void readSharedImages().then((files) => {
+      if (!files) return;
+      clearSharedImages();
+      if (files.length) setSharedImages(files);
+    });
+  }, []);
 
   const people = useMemo(() => [...data.people].sort((a, b) => a.createdAt - b.createdAt || compareText(a.name, b.name)), [data.people]);
   const photos = useMemo(() => new Map(data.photos.map((p) => [p.id, p.data])), [data.photos]);
@@ -130,6 +141,24 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
     setImporting(true);
     void calendarSearch.run(visitCalendarWords(), { limit: 25 });
   };
+  // The shared label photos open Scan the label in a new medicine for the person on screen, or the first one the viewer may edit.
+  useEffect(() => {
+    if (!sharedImages) return;
+    const person = people.find((p) => p.id === selected && canEdit(p, role, me)) ?? people.find((p) => canEdit(p, role, me));
+    if (!person) {
+      // Nobody here may add a medicine (a helper, a kid): say so rather than open on Today as if nothing was shared.
+      if (people.length) {
+        setSharedImages(null);
+        notify(t('toast.shareNoEdit'));
+      }
+      return;
+    }
+    setSharedImages(null);
+    setTab('medicines');
+    setSelected(person.id);
+    setMedDialog({ med: null, personId: person.id, images: sharedImages });
+  }, [sharedImages, people, selected, role, me, notify, t]);
+
   const setUrl = (changes: Record<string, string | null>) => {
     const url = new URL(location.href);
     for (const [k, v] of Object.entries(changes)) {
@@ -334,6 +363,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
             person={medPerson}
             contacts={data.contacts}
             now={now}
+            images={medDialog.images}
             onClose={() => setMedDialog(null)}
             onSave={(input) => {
               actions.saveMed(medDialog.med?.id ?? null, input);

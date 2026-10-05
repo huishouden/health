@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { DEMO_HELPER, DEMO_MEMBERS, DEMO_NOW, demoData } from './demo';
-import { agendaItems, reminderItems, sensitiveWords, todoItems, type PublishInput } from './publish';
+import { agendaItems, refillSource, reminderItems, sensitiveWords, todoItems, type PublishInput } from './publish';
 import { todoOpsAllowed } from '@huishouden/pwa-kit/todos';
+import { readSource, sourceAllowed, sourceReads, stillDue } from '@huishouden/pwa-kit/reminder-source';
+import { personalReminderDoc } from '@huishouden/pwa-kit/reminders';
 import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
 
 const data = demoData();
@@ -141,5 +143,62 @@ describe('visits', () => {
     const words = sensitiveWords(data.people, data.meds, data.visits);
     expect(words).toContain('Diabetes check');
     expect(words).toContain('Example Heart Center, 30 Example Street');
+  });
+});
+
+describe('the sender drops a reminder once it is done elsewhere', () => {
+  const items = reminderItems(input);
+  const stored = (r: (typeof items)[number]) => readSource('health', personalReminderDoc(r, r.audience[0], DEMO_NOW).source)!;
+
+  test('a dose-time reminder names its doses: due while any is unmarked, only for the person’s readers', () => {
+    const evening = items.find((r) => r.ref === 'health:dose:demo-person-ria' && new Date(r.at).getHours() === 18)!;
+    const source = stored(evening);
+    expect(source.any).toBe(true);
+    const docs = source.checks.map((c) => c.doc);
+    expect(docs.every((d) => d.startsWith('healthPeople/demo-person-ria/doses/'))).toBe(true);
+    // The portal's "Mark given" for those doses writes exactly these records.
+    const later = { ...input, now: evening.at + 3 * 3_600_000 };
+    const todo = todoItems(later).find((t) => t.ref.startsWith('missed:demo-person-ria:') && t.due === evening.at)!;
+    expect(todo.done!.ops.map((o) => `${o.col}/${o.id}`)).toEqual(docs);
+    const unmarked = new Map(docs.map((d) => [d, null]));
+    expect(stillDue(source, unmarked)).toBe(true);
+    expect(stillDue(source, new Map(docs.map((d) => [d, { status: 'given' }])))).toBe(false);
+    // Read with the person, whose readers decide whether the writer's source counts.
+    const person = data.people.find((p) => p.id === 'demo-person-ria')!;
+    expect(sourceReads('health', source)).toContain('healthPeople/demo-person-ria');
+    const read = new Map<string, Record<string, unknown> | null>([['healthPeople/demo-person-ria', { readers: person.readers }]]);
+    expect(sourceAllowed('health', source, person.readers[0], 'member', read, { personal: true })).toBe(true);
+    expect(sourceAllowed('health', source, 'nobody@example.com', 'member', read, { personal: true })).toBe(false);
+    // Never on a shared reminder, which every member reads.
+    expect(sourceAllowed('health', source, person.readers[0], 'member', read)).toBe(false);
+    // An admin who isn't a reader, and a helper who is (the tablet, a sitter): yes. A kid among the readers: never.
+    const P = { personal: true };
+    const withReaders = (readers: string[]) => new Map<string, Record<string, unknown> | null>([['healthPeople/demo-person-ria', { readers }]]);
+    expect(sourceAllowed('health', source, ALEX, 'admin', withReaders(person.readers.filter((e) => e !== ALEX)), P)).toBe(true);
+    expect(person.readers).toContain(DEMO_HELPER);
+    expect(sourceAllowed('health', source, DEMO_HELPER, 'helper', read, P)).toBe(true);
+    expect(sourceAllowed('health', source, 'kid@example.com', 'kid', withReaders([...person.readers, 'kid@example.com']), P)).toBe(false);
+    // The late one for the other carers names the same doses.
+    const late = items.find((r) => r.ref === 'health:late:demo-person-ria' && new Date(r.at).getHours() === 18)!;
+    expect(stored(late)).toEqual(source);
+  });
+
+  test('a refill reminder: due until a refill is ordered', () => {
+    const refill = items.find((r) => r.ref === 'health:refill:demo-med-metformin')!;
+    const source = stored(refill);
+    const [check] = source.checks;
+    const med = data.meds.find((m) => m.id === 'demo-med-metformin')!;
+    expect(stillDue(source, new Map([[check.doc, { ...med }]]))).toBe(true);
+    expect(stillDue(source, new Map([[check.doc, { ...med, refillOrderedAt: DEMO_NOW }]]))).toBe(false);
+    // The to-do's Ordered writes the medicine the source reads; only the person's readers may use it.
+    // Lisinopril is low already, so its refill to-do is up: its Ordered writes what its refill source reads.
+    const lisinopril = data.meds.find((m) => m.id === 'demo-med-lisinopril')!;
+    const todo = todoItems(input).find((t) => t.ref === 'refill:demo-person-ria:demo-med-lisinopril')!;
+    expect(todo.done!.ops.map((o) => `${o.col}/${o.id}`)).toEqual([refillSource('demo-person-ria', lisinopril).checks[0].doc]);
+    expect(check.doc).toBe('healthPeople/demo-person-ria/meds/demo-med-metformin');
+    const person = data.people.find((p) => p.id === 'demo-person-ria')!;
+    const read = new Map<string, Record<string, unknown> | null>([['healthPeople/demo-person-ria', { readers: person.readers }]]);
+    expect(sourceAllowed('health', source, person.readers[0], 'member', read, { personal: true })).toBe(true);
+    expect(sourceAllowed('health', source, 'nobody@example.com', 'member', read, { personal: true })).toBe(false);
   });
 });
