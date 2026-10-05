@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.0 (2026-10-05)
+
+### Features
+
+* **visits:** each person's appointments in a new Visits tab (Today, Medicines, Visits, History; People under More). It covers kind, day and time, the doctor or clinic and how far it is from home, the place or a video link, what to do or bring (with the medicine list one tap away), reminders at chosen lead times (default the day before and 2 hours before) to the carers, notes for admins and member carers only, and Attended or Missed with Undo. A visit can want a follow-up: Book opens the next one filled in, Not needed drops it, and the portal shows "Book a follow-up for <person>" until one or the other. What a visit publishes says only "Appointment for <person>"; the detail goes only to a reader's own calendar with Health details on, never the notes, and never a private doctor where a helper carer reads it. New calendar events that name someone are suggested, and Import from calendar asks whose each other one is. The assistant's earlier appointments become visits. Today shows each person's next visit within a week (pwa-kit 0.101.0).
+
 ## [1.9.0](https://github.com/huishouden/health/compare/v1.8.0...v1.9.0) (2026-10-05)
 
 ### Features
