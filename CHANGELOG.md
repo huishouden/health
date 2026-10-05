@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.2](https://github.com/huishouden/health/compare/v1.6.1...v1.6.2) (2026-10-05)
+
+### Tests
+
+* signed-in tests on a household of the run's own instead of fixed test users; the roles test runs on the emulators (`bun run e2e:emulator`) ([#17](https://github.com/huishouden/health/issues/17))
+
 ## [1.6.1](https://github.com/huishouden/health/compare/v1.6.0...v1.6.1) (2026-10-05)
 
 ### Other
