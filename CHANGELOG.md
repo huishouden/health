@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.2](https://github.com/huishouden/health/compare/v1.10.1...v1.10.2) (2026-10-05)
+
+### Changes
+
+* Agenda, to-do and reminder syncs on open skip the database read when this device published the same items in the last 6 hours; a change, a single record's edit or 6 hours passing syncs as before (pwa-kit 0.103.0)
+
 ## [1.10.1](https://github.com/huishouden/health/compare/v1.10.0...v1.10.1) (2026-10-05)
 
 ### Bug Fixes
