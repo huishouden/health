@@ -335,7 +335,7 @@
   "tab.conditions": "Afecciones",
   "live.conditions": "No se pudieron cargar las afecciones",
   "conditions.of": "Afecciones de {name}",
-  "conditions.add": "Añadir afección",
+  "conditions.add": "Agregar afección",
   "conditions.empty": "No hay afecciones registradas.",
   "conditions.emptyEditable": "Aún no hay afecciones. Añade una para tener juntos el diagnóstico, quién lo hizo y dónde, y los medicamentos que la tratan.",
   "conditions.notShared": "Las afecciones son solo para los administradores y los miembros que cuidan a una persona (o que son esa persona).",

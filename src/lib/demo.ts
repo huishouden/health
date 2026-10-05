@@ -168,15 +168,15 @@ function conditions(): Condition[] {
     id: `demo-condition-${id}`, personId, createdAt: CREATED, by: SAM, ...data,
   });
   return [
-    c('diabetes', RIA, { name: 'Type 2 diabetes', icd10: 'E11.9', specialty: 'endocrinology', status: 'managed', diagnosed: '2019-03', doctorId: GP, clinicId: GP, medIds: ['demo-med-metformin'], notes: 'Checked every three months.' }),
-    c('bp', RIA, { name: 'High blood pressure', icd10: 'I10', specialty: 'cardiology', status: 'active', diagnosed: '2021', severity: 'moderate', doctorId: GP, clinicId: HEART, medIds: ['demo-med-lisinopril'] }),
-    c('cholesterol', RIA, { name: 'High cholesterol', icd10: 'E78.5', specialty: 'endocrinology', status: 'managed', diagnosed: '2021', doctorId: GP, medIds: ['demo-med-atorvastatin'] }),
-    c('knee', RIA, { name: 'Osteoarthritis of the knee', icd10: 'M17.11', specialty: 'orthopedics', status: 'active', diagnosed: '2027-10', severity: 'mild', medIds: ['demo-med-paracetamol'] }),
-    c('cataract', RIA, { name: 'Cataract', icd10: 'H25.9', specialty: 'ophthalmology', status: 'active', diagnosed: '2030-11-04', clinicId: EYES }),
-    c('hayfever', NOOR, { name: 'Hay fever', icd10: 'J30.2', specialty: 'allergy', status: 'active', diagnosed: '2030', doctorId: PEDS, medIds: ['demo-med-cetirizine'], by: ALEX }),
-    c('ear', NOOR, { name: 'Middle ear infection', icd10: 'H66.90', specialty: 'ent', status: 'resolved', diagnosed: '2031-02', resolved: '2031-03', doctorId: PEDS, by: ALEX }),
-    c('thyroid', ALEX_P, { name: 'Underactive thyroid', icd10: 'E03.9', specialty: 'endocrinology', status: 'managed', diagnosed: '2026-06', place: 'Example Hospital', medIds: ['demo-med-levothyroxine'], by: ALEX }),
-    c('migraine', ALEX_P, { name: 'Migraine', icd10: 'G43.909', specialty: 'neurology', status: 'active', diagnosed: '2028', severity: 'mild', doctorId: NEURO, clinicId: NEURO, by: ALEX }),
+    c('diabetes', RIA, { name: 'Type 2 diabetes', icd10: 'E11.9', specialty: 'endocrinology', status: 'managed', diagnosed: day(-760).slice(0, 7), doctorId: GP, clinicId: GP, medIds: ['demo-med-metformin'], notes: 'Checked every three months.' }),
+    c('bp', RIA, { name: 'High blood pressure', icd10: 'I10', specialty: 'cardiology', status: 'active', diagnosed: day(-500).slice(0, 4), severity: 'moderate', doctorId: GP, clinicId: HEART, medIds: ['demo-med-lisinopril'] }),
+    c('cholesterol', RIA, { name: 'High cholesterol', icd10: 'E78.5', specialty: 'endocrinology', status: 'managed', diagnosed: day(-500).slice(0, 4), doctorId: GP, medIds: ['demo-med-atorvastatin'] }),
+    c('knee', RIA, { name: 'Osteoarthritis of the knee', icd10: 'M17.11', specialty: 'orthopedics', status: 'active', diagnosed: day(-420).slice(0, 7), severity: 'mild', medIds: ['demo-med-paracetamol'] }),
+    c('cataract', RIA, { name: 'Cataract', icd10: 'H25.9', specialty: 'ophthalmology', status: 'active', diagnosed: day(-191), clinicId: EYES }),
+    c('hayfever', NOOR, { name: 'Hay fever', icd10: 'J30.2', specialty: 'allergy', status: 'active', diagnosed: day(-365).slice(0, 4), doctorId: PEDS, medIds: ['demo-med-cetirizine'], by: ALEX }),
+    c('ear', NOOR, { name: 'Middle ear infection', icd10: 'H66.90', specialty: 'ent', status: 'resolved', diagnosed: day(-90).slice(0, 7), resolved: day(-60).slice(0, 7), doctorId: PEDS, by: ALEX }),
+    c('thyroid', ALEX_P, { name: 'Underactive thyroid', icd10: 'E03.9', specialty: 'endocrinology', status: 'managed', diagnosed: day(-210).slice(0, 7), place: 'Example Hospital', medIds: ['demo-med-levothyroxine'], by: ALEX }),
+    c('migraine', ALEX_P, { name: 'Migraine', icd10: 'G43.909', specialty: 'neurology', status: 'active', diagnosed: day(-300).slice(0, 4), severity: 'mild', doctorId: NEURO, clinicId: NEURO, by: ALEX }),
   ];
 }
 

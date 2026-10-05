@@ -27,6 +27,13 @@ for (const [lang, messages] of [
   });
 }
 
+for (const lang of ['es', 'nl'] as const) {
+  test(`conditions in ${lang}: areas, statuses and the household view`, async ({ page }) => {
+    await page.clock.install({ time: START });
+    await expectLocalized(page, lang, { path: './?tab=conditions', words: ['Conditions', 'By medical area', 'Add a condition', 'Diagnosed', 'Treated with', 'Endocrinology', 'Managed', 'Active'] });
+  });
+}
+
 test('the list for the doctor in Spanish: translated labels and dates, and it still prints', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.clock.install({ time: START });

@@ -150,11 +150,12 @@ export function useLiveStore(householdId: string, me: string, household: { membe
       doses: list.flatMap((p) => of(p.id).doses ?? []),
       visits: list.flatMap((p) => of(p.id).visits ?? []),
       visitNotes: list.flatMap((p) => of(p.id).visitNotes ?? []),
-      conditions: list.flatMap((p) => of(p.id).conditions ?? []),
+      // Only people whose conditions this member reads now: a role changed to helper drops them at once.
+      conditions: list.filter((p) => canReadConditions(p, role, me)).flatMap((p) => of(p.id).conditions ?? []),
       photos: list.flatMap((p) => (of(p.id).photo ? [of(p.id).photo!] : [])),
       contacts,
     };
-  }, [people, parts, contacts]);
+  }, [people, parts, contacts, role, me]);
   const dataRef = useRef(data);
   dataRef.current = data;
 
