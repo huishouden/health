@@ -331,5 +331,5 @@
   "visits.inCalendar": "Open in calendar",
   "visits.edit": "Edit {title}",
   "visits.followUps": "Follow-ups to book",
-  "visits.helperNote": "Only the admins and the members who look after {name} can change a visit someone else added, or read the notes."
+  "visits.helperNote": "Only the admins and the members who look after {name} can edit a visit someone else added, or read the notes."
 }

@@ -331,5 +331,5 @@
   "visits.inCalendar": "Openen in agenda",
   "visits.edit": "{title} bewerken",
   "visits.followUps": "Vervolgafspraken om te maken",
-  "visits.helperNote": "Alleen de beheerders en de leden die voor {name} zorgen kunnen een afspraak van iemand anders wijzigen of de notities lezen."
+  "visits.helperNote": "Alleen de beheerders en de leden die voor {name} zorgen kunnen een afspraak van iemand anders bewerken of de notities lezen."
 }

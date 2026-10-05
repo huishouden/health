@@ -88,7 +88,7 @@ test('the home carer sees when, where and what to bring, marks visits, but never
   await expect(upcoming(page)).not.toContainText('Physio');
   await expect(page.getByText('Blood pressure a little high')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Edit Diabetes check/ })).toHaveCount(0);
-  await expect(upcoming(page)).toContainText('Only the admins and the members who look after Oma Ria can change a visit someone else added, or read the notes.');
+  await expect(upcoming(page)).toContainText('Only the admins and the members who look after Oma Ria can edit a visit someone else added, or read the notes.');
   await page.getByRole('button', { name: 'Add visit' }).click();
   const dialog = page.getByRole('dialog', { name: 'Visit for Oma Ria' });
   await dialog.getByText('Where, what to bring').click();

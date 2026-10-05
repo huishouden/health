@@ -331,5 +331,5 @@
   "visits.inCalendar": "Abrir en el calendario",
   "visits.edit": "Editar {title}",
   "visits.followUps": "Citas de seguimiento por pedir",
-  "visits.helperNote": "Solo los administradores y los miembros que cuidan a {name} pueden cambiar una cita que agregó otra persona o leer las notas."
+  "visits.helperNote": "Solo los administradores y los miembros que cuidan a {name} pueden editar una cita que agregó otra persona o leer las notas."
 }
