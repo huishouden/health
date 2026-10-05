@@ -25,7 +25,7 @@ import { addDays, atClock, clockWords, DAY, toYmd, ymdToTime } from '@huishouden
 import { capitalize } from '@huishouden/pwa-kit/i18n';
 import type { Contact } from '@huishouden/pwa-kit/contact-core';
 import { AGENDA_AHEAD_DAYS, AGENDA_PAST_DAYS } from '@huishouden/pwa-kit/agenda';
-import { followUpTodo, publishedContact, visitAgendaItem, visitReminders, visitTitle, type PublishVisitOptions } from '@huishouden/pwa-kit/visit';
+import { followUpTodo, visitAgendaItem, visitReminders, visitTitle, type PublishVisitOptions } from '@huishouden/pwa-kit/visit';
 import type { Dose, Med, Person, Visit } from './model';
 import { audienceOf, escalateTo, mainCarer, visitRecipients, type HouseholdLike } from './people';
 import { visitPath } from './visits';
@@ -63,9 +63,15 @@ function each(input: PublishInput) {
 
 /** What a visit's published items need: whose, who reads them, the link and the doctor. */
 function visitOptions(input: PublishInput, person: Person, audience: string[], v: Visit): PublishVisitOptions {
-  // A private doctor is named only when no helper carer reads what is published.
-  const contact = publishedContact(v.contactId ? input.contacts?.find((x) => x.id === v.contactId) : undefined, audience, input.household);
-  return { person, audience, url: input.url(visitPath(v)), ...(contact ? { contact } : {}) };
+  const c = v.contactId ? input.contacts?.find((x) => x.id === v.contactId) : undefined;
+  // The kit names a private doctor only when no helper carer reads what is published.
+  return {
+    person,
+    audience,
+    household: input.household,
+    url: input.url(visitPath(v)),
+    ...(c ? { contact: { name: c.name, ...(c.address ? { address: c.address } : {}), private: c.private } } : {}),
+  };
 }
 
 /** Visits on the agenda: from a month back to half a year ahead, as the portal reads it. */
