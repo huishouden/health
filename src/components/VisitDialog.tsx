@@ -10,7 +10,8 @@ import {
   DEFAULT_REMIND_BEFORE, DEFAULT_VISIT_MINUTES, FOLLOW_UP_CHOICES, followUpWords, leadWords, REMIND_CHOICES, VISIT_KINDS, VISIT_LIMITS, visitKindLabel,
   type FollowUp,
 } from '@huishouden/pwa-kit/visit';
-import type { Person, Visit, VisitInput, VisitKind } from '../lib/model';
+import type { Condition, Person, Specialty, Visit, VisitInput, VisitKind } from '../lib/model';
+import { SPECIALTIES, specialtyLabel } from '@huishouden/pwa-kit/condition';
 import { DOCTOR_WORDS, nameFromHome, roleLabel } from '../lib/contacts';
 import { PREP_PRESETS, prepPreset } from '../lib/visits';
 import { useT } from '../i18n';
@@ -27,12 +28,17 @@ export interface VisitDraft {
   personId?: string;
 }
 
-export function VisitDialog({ visit, draft, people, contacts, notes, canNotes, now, onSave, onDelete, onAddContact, onClose }: {
+export function VisitDialog({ visit, draft, people, contacts, conditions, notes, canNotes, now, onSave, onDelete, onAddContact, onClose }: {
   visit: Visit | null;
   draft?: VisitDraft;
   /** Whose it may be: the people this member may add visits for. */
   people: Person[];
   contacts: Contact[];
+  /**
+   * The conditions this member may read, everyone's (only admins, member carers and the person: a
+   * helper carer has none, and a visit's link to one stays as it is when they save it).
+   */
+  conditions: Condition[];
   /** Its notes as they are, when the member keeps them. */
   notes?: string;
   /** Whether the member reads and writes the person's visit notes. */
@@ -65,12 +71,17 @@ export function VisitDialog({ visit, draft, people, contacts, notes, canNotes, n
   const [remindBefore, setRemindBefore] = useState<number[]>([...(start.remindBefore ?? DEFAULT_REMIND_BEFORE)]);
   const [followUp, setFollowUp] = useState<FollowUp | undefined>(start.followUp);
   const [note, setNote] = useState(notes ?? '');
+  const [specialty, setSpecialty] = useState<Specialty | ''>(start.specialty ?? '');
+  const [conditionId, setConditionId] = useState(start.conditionId ?? '');
   const person = people.find((p) => p.id === personId);
   const keepsNotes = !!personId && canNotes(personId);
   const contact = contacts.find((c) => c.id === contactId);
+  const theirConditions = conditions.filter((c) => c.personId === personId);
+  // Whether this member reads the person's conditions; if not, the link is kept as it was.
+  const linksConditions = theirConditions.length > 0;
   const linkOk = !link.trim() || /^https:\/\/\S+$/i.test(link.trim());
   const valid = !!person && isYmd(day) && (allDay || isHhmm(time)) && linkOk;
-  const more = !!(start.location || start.link || start.prep?.length || start.medList || start.followUp || notes || (start.minutes && start.minutes !== DEFAULT_VISIT_MINUTES));
+  const more = !!(start.specialty || start.conditionId || start.location || start.link || start.prep?.length || start.medList || start.followUp || notes || (start.minutes && start.minutes !== DEFAULT_VISIT_MINUTES));
 
   const doctors = [...contacts].sort((a, b) => Number(DOCTOR_WORDS.test(b.role ?? '')) - Number(DOCTOR_WORDS.test(a.role ?? '')) || compareText(a.name, b.name));
   const presets = PREP_PRESETS.map(prepPreset).filter((p) => !prep.includes(p));
@@ -96,6 +107,8 @@ export function VisitDialog({ visit, draft, people, contacts, notes, canNotes, n
         link: link.trim() || undefined,
         prep,
         medList,
+        conditionId: (linksConditions ? theirConditions.find((c) => c.id === conditionId)?.id : start.conditionId) || undefined,
+        specialty: specialty || undefined,
         remindBefore,
         followUp,
         followUpOf: start.followUpOf,
@@ -195,6 +208,38 @@ export function VisitDialog({ visit, draft, people, contacts, notes, canNotes, n
         <details className="rounded-2xl border border-line p-4" open={more}>
           <summary className="cursor-pointer select-none text-sm font-medium text-ink-soft">{t('visitDialog.more')}</summary>
           <div className="mt-3 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('visitDialog.specialty')} hint={t('visitDialog.specialtyHint')}>
+                <select className={selectClass} value={specialty} onChange={(e) => setSpecialty(e.target.value as Specialty | '')}>
+                  <option value="">{t('medDialog.notSet')}</option>
+                  {[...SPECIALTIES].sort((a, b) => Number(a === 'primary') - Number(b === 'primary') || compareText(specialtyLabel(a), specialtyLabel(b))).map((s) => (
+                    <option key={s} value={s}>
+                      {specialtyLabel(s)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {linksConditions && (
+                <Field label={t('visitDialog.condition')}>
+                  <select
+                    className={selectClass}
+                    value={conditionId}
+                    onChange={(e) => {
+                      setConditionId(e.target.value);
+                      const c = theirConditions.find((x) => x.id === e.target.value);
+                      if (c && !specialty) setSpecialty(c.specialty);
+                    }}
+                  >
+                    <option value="">{t('medDialog.notSet')}</option>
+                    {theirConditions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t('visitDialog.where')} hint={!location && contact?.address ? t('visitDialog.whereHint', { address: contact.address }) : undefined}>
                 <input className={inputClass} value={location} maxLength={VISIT_LIMITS.location} onChange={(e) => setLocation(e.target.value)} placeholder={contact?.address ?? t('visitDialog.wherePlaceholder')} autoComplete="off" />

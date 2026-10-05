@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CalendarCheck, CalendarClock, History as HistoryIcon, Pill, Users } from 'lucide-react';
+import { CalendarCheck, CalendarClock, History as HistoryIcon, Pill, Stethoscope, Users } from 'lucide-react';
 import { isImported, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
 import { CalendarImportDialog, CalendarSuggestions, calendarAvailable, useCalendarSearch, useCalendarSuggestions } from '@huishouden/pwa-kit/react/calendar';
 import { atTime, toHhmm } from '@huishouden/pwa-kit/time';
@@ -12,7 +12,7 @@ import { cardClass, primaryButton, Toast, type ToastState } from '@huishouden/pw
 import { personName } from '@huishouden/pwa-kit/people';
 import { clearSharedImages, readSharedImages } from '@huishouden/pwa-kit/shared-images';
 import { toYmd } from '@huishouden/pwa-kit/time';
-import type { Med, Person, Visit } from './lib/model';
+import type { Condition, Med, Person, Visit } from './lib/model';
 import { fromCalendar } from './lib/visits';
 import { VisitDialog, type VisitDraft } from './components/VisitDialog';
 import { Visits } from './screens/Visits';
@@ -20,7 +20,7 @@ import { guardFor, medLabel, supplyLeft } from './lib/meds';
 import { APP } from './lib/publish';
 import { CONTACT_ROLES, roleLabel } from './lib/contacts';
 import { useT } from './i18n';
-import { canAddPeople, canAddVisit, canChangeVisit, canEdit, canKeepNotes } from './lib/people';
+import { canAddPeople, canAddVisit, canChangeVisit, canEdit, canKeepConditions, canKeepNotes, canReadConditions } from './lib/people';
 import type { HealthStore } from './data/actions';
 import { auth } from './data/firebase';
 import { Header, type Tab } from './components/Header';
@@ -33,19 +33,23 @@ import { Today } from './screens/Today';
 import { Medicines } from './screens/Medicines';
 import { History } from './screens/History';
 import { People } from './screens/People';
+import { Conditions } from './screens/Conditions';
+import { ConditionDialog } from './components/ConditionDialog';
 import { compareText } from '@huishouden/pwa-kit/i18n';
 
-export type TabId = 'today' | 'medicines' | 'visits' | 'history' | 'people';
+export type TabId = 'today' | 'medicines' | 'visits' | 'conditions' | 'history' | 'people';
 
-// The phone's bottom bar: Today, Medicines, Visits, History; People under More.
-const tabs = (t: ReturnType<typeof useT>): Tab[] => [
+// The phone's bottom bar: Today, Medicines, Visits, History; Conditions and People under More.
+// Conditions only for those who read someone's (helper carers and kids never see the tab).
+const tabs = (t: ReturnType<typeof useT>, conditions: boolean): Tab[] => [
   { id: 'today', label: t('tab.today'), icon: CalendarCheck, primary: true },
   { id: 'medicines', label: t('tab.medicines'), icon: Pill, primary: true },
   { id: 'visits', label: t('tab.visits'), icon: CalendarClock, primary: true },
+  ...(conditions ? [{ id: 'conditions', label: t('tab.conditions'), icon: Stethoscope }] : []),
   { id: 'history', label: t('tab.history'), icon: HistoryIcon, primary: true },
   { id: 'people', label: t('tab.people'), icon: Users },
 ];
-const TAB_IDS: readonly TabId[] = ['today', 'medicines', 'visits', 'history', 'people'];
+const TAB_IDS: readonly TabId[] = ['today', 'medicines', 'visits', 'conditions', 'history', 'people'];
 
 export { CONTACT_ROLES } from './lib/contacts';
 
@@ -80,6 +84,8 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const [selected, setSelected] = useState<string | null>(() => param('person'));
   const [highlight] = useState<string | null>(() => param('med'));
   const [shownVisit, setShownVisit] = useState<string | null>(() => param('visit'));
+  const [shownCondition] = useState<string | null>(() => param('condition'));
+  const [conditionDialog, setConditionDialog] = useState<{ condition: Condition | null; personId: string } | null>(null);
   const [visitDialog, setVisitDialog] = useState<{ visit: Visit | null; draft?: VisitDraft } | null>(null);
   const [importing, setImporting] = useState(false);
   const [draftQueue, setDraftQueue] = useState<VisitDraft[]>([]);
@@ -110,6 +116,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const nameOf = (email: string) => (email === me ? t('names.you') : store.names?.get(email) ?? personName(email, { email: me }));
   const personOf = (id: string) => people.find((p) => p.id === id);
   const addable = people.filter((p) => canAddVisit(p, role, me));
+  const readsConditions = people.some((p) => canReadConditions(p, role, me));
   const imported = data.visits.map((v) => ({ title: visitTitle(v), at: v.at, calendarEventId: v.calendarEventId, calendarLink: v.calendarLink }));
   // New calendar events that name someone in Health (whose it is is never assumed: one naming nobody waits for Import from calendar).
   const suggested = useCalendarSuggestions({
@@ -169,7 +176,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   };
   const chooseTab = (id: TabId) => {
     setTab(id);
-    setUrl({ tab: id === 'today' ? null : id, med: null, visit: null });
+    setUrl({ tab: id === 'today' ? null : id, med: null, visit: null, condition: null });
   };
   const choosePerson = (id: string | null) => {
     setSelected(id);
@@ -215,7 +222,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const printPerson = printFor ? personOf(printFor) : undefined;
   let content: ReactNode;
   if (!store.ready) content = <p className="p-2 text-lg text-muted">{t('app.loading')}</p>;
-  else if (printPerson) content = <PrintList list={listModel(printPerson, data.meds, data.doses, data.contacts, now)} now={now} onClose={() => print(null)} />;
+  else if (printPerson) content = <PrintList list={listModel(printPerson, data.meds, data.doses, data.contacts, now, data.conditions)} now={now} onClose={() => print(null)} />;
   else if (tab === 'medicines')
     content = (
       <Medicines
@@ -278,6 +285,25 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         empty={empty}
       />
     );
+  else if (tab === 'conditions' && readsConditions)
+    content = (
+      <Conditions
+        store={store}
+        people={people}
+        selected={selected}
+        onSelect={choosePerson}
+        highlight={shownCondition}
+        onAdd={(personId) => setConditionDialog({ condition: null, personId })}
+        onEdit={(c) => setConditionDialog({ condition: c, personId: c.personId })}
+        onShowVisit={(id, visitId) => {
+          choosePerson(id);
+          chooseTab('visits');
+          setUrl({ visit: visitId });
+          setShownVisit(visitId);
+        }}
+        empty={empty}
+      />
+    );
   else if (tab === 'history') content = <History store={store} people={people} selected={selected} onSelect={choosePerson} nameOf={nameOf} onPrint={print} empty={empty} />;
   else if (tab === 'people')
     content = (
@@ -319,13 +345,14 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
     );
 
   const medPerson = medDialog ? personOf(medDialog.personId) : undefined;
+  const conditionPerson = conditionDialog ? personOf(conditionDialog.personId) : undefined;
   const dosePerson = doseDialog ? personOf(doseDialog.target.med.personId) : undefined;
 
   return (
     <Photos.Provider value={photos}>
       <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased print:bg-white">
         <div className="print:hidden">
-          <Header tabs={tabs(t)} tab={tab} onTab={(id) => (print(null), chooseTab(id as TabId))} user={user} onSignIn={onSignIn} onSignOut={onSignOut} signingIn={signingIn} />
+          <Header tabs={tabs(t, readsConditions)} tab={tab === 'conditions' && !readsConditions ? 'today' : tab} onTab={(id) => (print(null), chooseTab(id as TabId))} user={user} onSignIn={onSignIn} onSignOut={onSignOut} signingIn={signingIn} />
         </div>
         <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6 print:p-0">
           {banner && <div className="print:hidden">{banner}</div>}
@@ -375,6 +402,24 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
             onAddContact={(r) => setContact({ contact: null, role: r })}
           />
         )}
+        {conditionDialog && conditionPerson && canKeepConditions(conditionPerson, role, me) && (
+          <ConditionDialog
+            key={conditionDialog.condition?.id ?? `new-${conditionDialog.personId}`}
+            condition={conditionDialog.condition}
+            person={conditionPerson}
+            contacts={data.contacts}
+            meds={data.meds.filter((m) => m.personId === conditionPerson.id)}
+            visits={data.visits.filter((v) => v.personId === conditionPerson.id)}
+            now={now}
+            onClose={() => setConditionDialog(null)}
+            onSave={(input, visitIds) => {
+              actions.saveCondition(conditionDialog.condition?.id ?? null, input, visitIds);
+              notify(conditionDialog.condition ? t('toast.saved', { name: input.name.trim() }) : t('toast.addedFor', { med: input.name.trim(), name: conditionPerson.name }));
+            }}
+            onDelete={conditionDialog.condition ? () => notify(t('toast.removed', { name: conditionDialog.condition!.name }), actions.deleteCondition(conditionDialog.condition!)) : undefined}
+            onAddContact={(r) => setContact({ contact: null, role: r })}
+          />
+        )}
         {doseDialog && dosePerson && (
           <DoseDialog
             med={doseDialog.target.med}
@@ -396,6 +441,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
             draft={visitDialog.draft}
             people={visitDialog.visit ? people.filter((p) => p.id === visitDialog.visit!.personId) : addable}
             contacts={data.contacts}
+            conditions={data.conditions}
             notes={visitDialog.visit ? data.visitNotes.find((n) => n.id === visitDialog.visit!.id)?.text : undefined}
             canNotes={(id) => {
               const p = personOf(id);

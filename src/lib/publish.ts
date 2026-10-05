@@ -27,7 +27,7 @@ import { capitalize } from '@huishouden/pwa-kit/i18n';
 import type { Contact } from '@huishouden/pwa-kit/contact-core';
 import { AGENDA_AHEAD_DAYS, AGENDA_PAST_DAYS } from '@huishouden/pwa-kit/agenda';
 import { followUpTodo, visitAgendaItem, visitReminders, visitTitle, type PublishVisitOptions } from '@huishouden/pwa-kit/visit';
-import type { Dose, Med, Person, Visit } from './model';
+import type { Condition, Dose, Med, Person, Visit } from './model';
 import { audienceOf, escalateTo, mainCarer, visitRecipients, type HouseholdLike } from './people';
 import { visitPath } from './visits';
 import { byTime, daysLeft, daysLeftText, doseId, dosesCol, medsCol, doseText, isStopped, lowOn, medLabel, refillDue, rowsBetween } from './meds';
@@ -264,8 +264,9 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
 }
 
 /** Everything Health holds that must never reach analytics: people's and medicines' names, and what visits are and where. */
-export function sensitiveWords(people: readonly Person[], meds: readonly Med[], visits: readonly Visit[] = []): string[] {
+export function sensitiveWords(people: readonly Person[], meds: readonly Med[], visits: readonly Visit[] = [], conditions: readonly Condition[] = []): string[] {
   return [
+    ...conditions.flatMap((c) => [c.name, ...(c.place ? [c.place] : [])]),
     ...people.flatMap((p) => [p.name, ...p.name.split(/\s+/)]),
     ...meds.flatMap((m) => [m.name, medLabel(m)]),
     ...visits.flatMap((v) => [visitTitle(v), ...(v.location ? [v.location] : []), ...(v.prep ?? [])]),
