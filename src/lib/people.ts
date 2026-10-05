@@ -86,3 +86,29 @@ export function nameWithAge(p: Pick<Person, 'name' | 'birthDate'>, now: number):
 /** First name for short labels. */
 export const firstName = (p: Pick<Person, 'name'>) => p.name.trim().split(/\s+/)[0] ?? p.name;
 
+
+/** Adding a visit: everyone who reads the person (helper carers in their own name). */
+export const canAddVisit = canSee;
+
+/** Changing or removing a visit: the person's keepers, or the helper who added it. */
+export function canChangeVisit(v: { by: string }, p: Pick<PersonData, 'readers'>, role: Role | null, me: string): boolean {
+  return canEdit(p, role, me) || (canSee(p, role, me) && v.by === lower(me));
+}
+
+/** Marking a visit Attended or Missed, and answering its follow-up: everyone who reads the person. */
+export const canMarkVisit = canSee;
+
+/** A visit's notes (what the doctor said): only the person's keepers read and write them. */
+export const canKeepNotes = canEdit;
+
+/**
+ * Told before a visit: the person's carers, else the person themself, else the admins; never kids.
+ * Everyone who might take them along, not only the one who gives the medicines.
+ */
+export function visitRecipients(p: Pick<PersonData, 'carers' | 'email'>, h: HouseholdLike): string[] {
+  const ok = notKid(h);
+  const carers = p.carers.map(lower).filter(ok);
+  if (carers.length) return cleanAudience(carers);
+  if (p.email && ok(lower(p.email))) return [lower(p.email)];
+  return admins(h).slice(0, 1);
+}

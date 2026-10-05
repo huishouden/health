@@ -101,3 +101,41 @@ test('a dose not marked is on the portal’s To-do list for the admin, not for o
   await admin.goto('./?tab=history');
   await expect(admin.getByRole('region', { name: `${PERSON}'s history` })).toContainText(new RegExp(`${name} 12:00 AM · given by You`), { timeout: 20_000 });
 });
+
+test('a visit: the admin adds it with notes; the helper carer sees when and where, never the notes, and marks it attended', { tag: '@smoke' }, async ({ browser }) => {
+  test.setTimeout(150_000);
+  const admin = await hh.open(browser, 'admin');
+  await testPerson(admin);
+  await admin.getByRole('button', { name: 'Visits', exact: true }).click();
+  await admin.getByRole('button', { name: 'Add visit' }).click();
+  const title = `Test eye exam ${Date.now() % 100000}`;
+  const yesterday = new Date(Date.now() - 86_400_000);
+  const day = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+  let dialog = admin.getByRole('dialog', { name: 'New visit' });
+  if (await dialog.count()) await dialog.getByLabel('Whose visit').selectOption({ label: PERSON });
+  dialog = admin.getByRole('dialog', { name: `Visit for ${PERSON}` });
+  await dialog.getByRole('button', { name: 'Eye doctor' }).click();
+  await dialog.getByLabel('What for (optional)').fill(title);
+  await dialog.getByLabel('Day').fill(day);
+  await dialog.getByLabel('Time', { exact: true }).fill('10:00');
+  await dialog.getByText('Where, what to bring').click();
+  await dialog.getByLabel('Where').fill('9 Example Lane');
+  await dialog.getByLabel('Notes').fill('Test note for keepers only');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  const marking = admin.getByRole('region', { name: 'Did it happen?' });
+  await expect(marking).toContainText(title, { timeout: 20_000 });
+  await admin.waitForTimeout(3000);
+  await expect(admin.getByText(/Couldn't save/i)).toHaveCount(0);
+
+  const helper = await hh.open(browser, 'helper', './?tab=visits');
+  const helperMarking = helper.getByRole('region', { name: 'Did it happen?' });
+  await expect(helperMarking).toContainText(title, { timeout: 30_000 });
+  await expect(helper.getByText('Test note for keepers only')).toHaveCount(0);
+  await helperMarking.getByRole('button', { name: new RegExp(`Mark ${escape(title)}.* attended`) }).click();
+  await expect(helperMarking.locator('li[data-completion=done]', { hasText: title })).toContainText('Attended · marked by you');
+  await helper.waitForTimeout(3000);
+  await expect(helper.getByText(/Couldn't save/i)).toHaveCount(0);
+
+  // The admin's device shows the helper's mark.
+  await expect(marking.locator('li[data-completion=done]', { hasText: title })).toContainText(/Attended · marked by (?!you)/, { timeout: 20_000 });
+});

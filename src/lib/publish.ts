@@ -10,6 +10,10 @@
 // - Reminders (push, to the recipients' own devices): at each dose time to the main carer, naming
 //   the medicines; if still not marked after the medicine's window, to the other carers; and a
 //   refill reminder when the supply runs low.
+// - Visits (`@huishouden/pwa-kit/visit`): "Appointment for Nan" on the agenda (what, with whom and
+//   where only in `calendarDetail`), reminders at each of the visit's lead times to the person's
+//   carers, and "Book a follow-up for Nan" on the to-do list once a visit wanting one is over.
+//   Never the visit's notes.
 //
 // Pure: the app passes `url` (deep links) and `now`.
 
@@ -19,8 +23,12 @@ import type { PersonalReminderInput } from '@huishouden/pwa-kit/reminders';
 import { reminderId } from '@huishouden/pwa-kit/reminders';
 import { addDays, atClock, clockWords, DAY, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
 import { capitalize } from '@huishouden/pwa-kit/i18n';
-import type { Dose, Med, Person } from './model';
-import { audienceOf, escalateTo, mainCarer, type HouseholdLike } from './people';
+import type { Contact } from '@huishouden/pwa-kit/contact-core';
+import { AGENDA_AHEAD_DAYS, AGENDA_PAST_DAYS } from '@huishouden/pwa-kit/agenda';
+import { followUpTodo, visitAgendaItem, visitReminders, visitTitle, type PublishVisitOptions } from '@huishouden/pwa-kit/visit';
+import type { Dose, Med, Person, Visit } from './model';
+import { audienceOf, escalateTo, mainCarer, visitRecipients, type HouseholdLike } from './people';
+import { visitPath } from './visits';
 import { byTime, daysLeft, daysLeftText, doseId, doseText, isStopped, lowOn, medLabel, refillDue, rowsBetween } from './meds';
 import { t } from '../i18n';
 
@@ -30,6 +38,9 @@ export interface PublishInput {
   people: Person[];
   meds: Med[];
   doses: Dose[];
+  visits?: Visit[];
+  /** The household's contacts, for a visit's doctor or clinic. */
+  contacts?: Contact[];
   household: HouseholdLike;
   now: number;
   /** A deep link into Health: `url('?person=p1')`. */
@@ -45,16 +56,32 @@ function each(input: PublishInput) {
     person: p,
     meds: input.meds.filter((m) => m.personId === p.id),
     doses: input.doses.filter((d) => d.personId === p.id),
+    visits: (input.visits ?? []).filter((v) => v.personId === p.id),
     audience: audienceOf(p, input.household),
   }));
 }
 
-/** Agenda items: each person's dose times today and tomorrow. */
+/** What a visit's published items need: whose, who reads them, the link and the doctor. */
+function visitOptions(input: PublishInput, person: Person, audience: string[], v: Visit): PublishVisitOptions {
+  const c = v.contactId ? input.contacts?.find((x) => x.id === v.contactId) : undefined;
+  return { person, audience, url: input.url(visitPath(v)), ...(c ? { contact: { name: c.name, ...(c.address ? { address: c.address } : {}) } } : {}) };
+}
+
+/** Visits on the agenda: from a month back to half a year ahead, as the portal reads it. */
+export function visitAgendaItems(input: PublishInput): PersonalAgendaInput[] {
+  const from = input.now - AGENDA_PAST_DAYS * DAY;
+  const to = input.now + AGENDA_AHEAD_DAYS * DAY;
+  return each(input).flatMap(({ person, visits, audience }) =>
+    visits.filter((v) => v.at >= from && v.at <= to).map((v) => visitAgendaItem(v, visitOptions(input, person, audience, v))),
+  );
+}
+
+/** Agenda items: each person's dose times today and tomorrow, and their visits. */
 export function agendaItems(input: PublishInput): PersonalAgendaInput[] {
   const today = toYmd(input.now);
   const from = ymdToTime(today);
   const to = ymdToTime(addDays(today, 2)) - 1;
-  return each(input).flatMap(({ person, meds, doses, audience }) =>
+  return each(input).flatMap(({ person, meds, doses, audience }): PersonalAgendaInput[] =>
     byTime(rowsBetween(meds, doses, from, to, input.now)).map((g) => ({
       ref: `dose:${person.id}:${g.rows[0].slot.key}`,
       kind: 'medicine' as const,
@@ -68,14 +95,14 @@ export function agendaItems(input: PublishInput): PersonalAgendaInput[] {
       status: g.rows.every((r) => handled(r.state)) ? ('done' as const) : ('upcoming' as const),
       audience,
     })),
-  );
+  ).concat(visitAgendaItems(input));
 }
 
 /** To-dos: doses not marked in the last 24 hours, and refills to order. */
 export function todoItems(input: PublishInput): PersonalTodoInput[] {
   const { now } = input;
   const out: PersonalTodoInput[] = [];
-  for (const { person, meds, doses, audience } of each(input)) {
+  for (const { person, meds, doses, visits, audience } of each(input)) {
     // Admins always may; members and helpers who look after the person are named (the rules decide).
     const givers = audience.filter((e) => person.readers.includes(e));
     const who = { roles: ['admin' as const], ...(givers.length ? { emails: givers } : {}) };
@@ -122,6 +149,10 @@ export function todoItems(input: PublishInput): PersonalTodoInput[] {
         audience,
       });
     }
+    for (const v of visits) {
+      const todo = followUpTodo(v, visits, { person, audience, url: input.url(visitPath(v)), givers, now });
+      if (todo) out.push(todo);
+    }
   }
   return out;
 }
@@ -133,7 +164,9 @@ export const REMINDER_DAYS = 7;
 export function reminderItems(input: PublishInput): PersonalReminderInput[] {
   const { now, household } = input;
   const out: PersonalReminderInput[] = [];
-  for (const { person, meds, doses, audience } of each(input)) {
+  for (const { person, meds, doses, visits, audience } of each(input)) {
+    const recipients = visitRecipients(person, household);
+    for (const v of visits) out.push(...visitReminders(v, { ...visitOptions(input, person, audience, v), recipients, now }));
     const main = mainCarer(person, household);
     const others = escalateTo(person, household);
     const url = input.url(personPath(person));
@@ -196,7 +229,11 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
   return out;
 }
 
-/** Everything Health holds that must never reach analytics: medicine and people's names. */
-export function sensitiveWords(people: readonly Person[], meds: readonly Med[]): string[] {
-  return [...people.flatMap((p) => [p.name, ...p.name.split(/\s+/)]), ...meds.flatMap((m) => [m.name, medLabel(m)])];
+/** Everything Health holds that must never reach analytics: people's and medicines' names, and what visits are and where. */
+export function sensitiveWords(people: readonly Person[], meds: readonly Med[], visits: readonly Visit[] = []): string[] {
+  return [
+    ...people.flatMap((p) => [p.name, ...p.name.split(/\s+/)]),
+    ...meds.flatMap((m) => [m.name, medLabel(m)]),
+    ...visits.flatMap((v) => [visitTitle(v), ...(v.location ? [v.location] : []), ...(v.prep ?? [])]),
+  ];
 }

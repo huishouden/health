@@ -12,7 +12,7 @@ const names = data.meds.map((m) => m.name);
 const leaks = (text: string) => names.filter((n) => text.includes(n));
 
 describe('agenda', () => {
-  const items = agendaItems(input);
+  const items = agendaItems(input).filter((i) => i.kind === 'medicine');
   test("one item per person and dose time today and tomorrow, named for the person only", () => {
     const ria = items.filter((i) => i.who === 'Oma Ria' && i.start < DEMO_NOW + 14 * 3_600_000);
     expect(ria.map((i) => `${new Date(i.start).getHours()} ${i.status} ${i.detail}`)).toEqual(['8 upcoming 2 medicines', '18 upcoming 1 medicine', '21 upcoming 1 medicine']);
@@ -39,7 +39,7 @@ describe('agenda', () => {
 });
 
 describe('to-dos', () => {
-  const items = todoItems(input);
+  const items = todoItems(input).filter((i) => !i.ref.startsWith('followup:'));
   test("Ria's unmarked 8 AM metformin, with Given and Skipped writing her dose; the low lisinopril with Ordered", () => {
     expect(items.map((i) => i.title)).toEqual(['Not marked: 8 AM medicine for Oma Ria', 'Refill a medicine for Oma Ria']);
     const [missed, refill] = items;
@@ -92,4 +92,50 @@ test('every medicine and person name is a sensitive word', () => {
   expect(words).toContain('Lisinopril 10 mg');
   expect(words).toContain('Oma Ria');
   expect(words).toContain('Noor');
+});
+
+describe('visits', () => {
+  const notes = data.visitNotes.map((n) => n.text);
+  const leaksNotes = (text: string) => notes.filter((n) => text.includes(n));
+
+  test('on the agenda as "Appointment for Oma Ria"; what, with whom and where only for the reader\'s own calendar', () => {
+    const visits = agendaItems(input).filter((i) => i.kind === 'appointment');
+    // A month back to half a year ahead: Noor's dentist two months ago is past the agenda.
+    expect(visits.map((i) => i.ref).sort()).toEqual(['visit:demo-person-alex:demo-visit-physio', 'visit:demo-person-noor:demo-visit-vaccine', 'visit:demo-person-ria:demo-visit-cardio', 'visit:demo-person-ria:demo-visit-diabetes', 'visit:demo-person-ria:demo-visit-eyes']);
+    const diabetes = visits.find((i) => i.ref.endsWith('demo-visit-diabetes'))!;
+    expect(diabetes).toMatchObject({ title: 'Appointment for Oma Ria', who: 'Oma Ria', private: true, allDay: false, audience: [DEMO_HELPER, SAM] });
+    expect(diabetes.detail).toBeUndefined();
+    expect(diabetes.calendarDetail).toBe('Checkup: Diabetes check with Dr. Lena Hart · 12 Example Street · Fasting from midnight · bring the medicine list');
+    expect(diabetes.url).toBe(`${SUITE_ORIGIN}/health/?tab=visits&person=demo-person-ria&visit=demo-visit-diabetes`);
+    expect(visits.find((i) => i.ref.endsWith('demo-visit-cardio'))!.status).toBe('done');
+    for (const i of visits) expect(leaksNotes(JSON.stringify(i))).toEqual([]);
+  });
+
+  test('reminded the day before and two hours before, to everyone who looks after them, with what to bring', () => {
+    const diabetes = reminderItems(input).filter((r) => r.ref === 'health:visit:demo-visit-diabetes');
+    const at = new Date(2031, 4, 16, 9, 15).getTime();
+    expect(diabetes.map((r) => r.at)).toEqual([at - 86_400_000, at - 2 * 3_600_000]);
+    expect(diabetes[0]).toMatchObject({ title: 'Appointment for Oma Ria', recipients: [DEMO_HELPER, SAM], audience: [DEMO_HELPER, SAM] });
+    expect(diabetes[0].body).toBe('Tomorrow at 9:15 AM: Checkup: Diabetes check with Dr. Lena Hart, 12 Example Street. Fasting from midnight and bring the medicine list.');
+    // Alex's own visit reminds Alex, an hour before; nothing for visits already over.
+    expect(reminderItems(input).filter((r) => r.ref === 'health:visit:demo-visit-physio').map((r) => r.recipients)).toEqual([[ALEX]]);
+    expect(reminderItems(input).some((r) => r.ref === 'health:visit:demo-visit-vaccine')).toBe(false);
+    for (const r of reminderItems(input)) expect(leaksNotes(`${r.title} ${r.body}`)).toEqual([]);
+  });
+
+  test("a follow-up to book once the visit is over: Booked and Not needed mark it, for the person's readers", () => {
+    const todo = todoItems(input).find((i) => i.ref === 'followup:demo-person-ria:demo-visit-cardio')!;
+    expect(todo).toMatchObject({ title: 'Book a follow-up for Oma Ria', detail: 'Around May 23', who: 'Oma Ria', audience: [DEMO_HELPER, SAM] });
+    expect(todo.done!.ops).toEqual([{ col: 'healthPeople/demo-person-ria/visits', id: 'demo-visit-cardio', data: { followUpDoneAt: '$now', updatedAt: '$now' }, merge: true }]);
+    expect(todo.done!.emails).toEqual([DEMO_HELPER, SAM]);
+    expect(todoOpsAllowed('health', todo.done!.ops)).toBe(true);
+    // The diabetes check's follow-up waits until the visit is over.
+    expect(todoItems(input).some((i) => i.ref.endsWith('demo-visit-diabetes'))).toBe(false);
+  });
+
+  test("a visit's title and place never reach analytics", () => {
+    const words = sensitiveWords(data.people, data.meds, data.visits);
+    expect(words).toContain('Diabetes check');
+    expect(words).toContain('Example Heart Center, 30 Example Street');
+  });
 });

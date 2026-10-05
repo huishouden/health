@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CalendarCheck, History as HistoryIcon, Pill, Users } from 'lucide-react';
+import { CalendarCheck, CalendarClock, History as HistoryIcon, Pill, Users } from 'lucide-react';
+import { isImported, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
+import { CalendarImportDialog, CalendarSuggestions, calendarAvailable, useCalendarSearch, useCalendarSuggestions } from '@huishouden/pwa-kit/react/calendar';
+import { atTime, toHhmm } from '@huishouden/pwa-kit/time';
+import { followUpDay, visitCalendarWords, visitTitle } from '@huishouden/pwa-kit/visit';
 import type { User } from 'firebase/auth';
 import type { Contact } from '@huishouden/pwa-kit/contacts';
 import { ContactDialog } from '@huishouden/pwa-kit/react/contacts';
@@ -7,12 +11,15 @@ import { useClock } from '@huishouden/pwa-kit/react/clock';
 import { cardClass, primaryButton, Toast, type ToastState } from '@huishouden/pwa-kit/react/ui';
 import { personName } from '@huishouden/pwa-kit/people';
 import { toYmd } from '@huishouden/pwa-kit/time';
-import type { Med, Person } from './lib/model';
+import type { Med, Person, Visit } from './lib/model';
+import { fromCalendar } from './lib/visits';
+import { VisitDialog, type VisitDraft } from './components/VisitDialog';
+import { Visits } from './screens/Visits';
 import { guardFor, medLabel, supplyLeft } from './lib/meds';
 import { APP } from './lib/publish';
 import { CONTACT_ROLES, roleLabel } from './lib/contacts';
 import { useT } from './i18n';
-import { canAddPeople, canEdit } from './lib/people';
+import { canAddPeople, canAddVisit, canChangeVisit, canEdit, canKeepNotes } from './lib/people';
 import type { HealthStore } from './data/actions';
 import { auth } from './data/firebase';
 import { Header, type Tab } from './components/Header';
@@ -27,15 +34,17 @@ import { History } from './screens/History';
 import { People } from './screens/People';
 import { compareText } from '@huishouden/pwa-kit/i18n';
 
-export type TabId = 'today' | 'medicines' | 'history' | 'people';
+export type TabId = 'today' | 'medicines' | 'visits' | 'history' | 'people';
 
+// The phone's bottom bar: Today, Medicines, Visits, History; People under More.
 const tabs = (t: ReturnType<typeof useT>): Tab[] => [
   { id: 'today', label: t('tab.today'), icon: CalendarCheck, primary: true },
   { id: 'medicines', label: t('tab.medicines'), icon: Pill, primary: true },
+  { id: 'visits', label: t('tab.visits'), icon: CalendarClock, primary: true },
   { id: 'history', label: t('tab.history'), icon: HistoryIcon, primary: true },
-  { id: 'people', label: t('tab.people'), icon: Users, primary: true },
+  { id: 'people', label: t('tab.people'), icon: Users },
 ];
-const TAB_IDS: readonly TabId[] = ['today', 'medicines', 'history', 'people'];
+const TAB_IDS: readonly TabId[] = ['today', 'medicines', 'visits', 'history', 'people'];
 
 export { CONTACT_ROLES } from './lib/contacts';
 
@@ -69,6 +78,10 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const [tab, setTab] = useState<TabId>(initialTab);
   const [selected, setSelected] = useState<string | null>(() => param('person'));
   const [highlight] = useState<string | null>(() => param('med'));
+  const [shownVisit, setShownVisit] = useState<string | null>(() => param('visit'));
+  const [visitDialog, setVisitDialog] = useState<{ visit: Visit | null; draft?: VisitDraft } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const calendarSearch = useCalendarSearch(auth, 'Health');
   const [personDialog, setPersonDialog] = useState<{ person: Person | null } | null>(null);
   const [medDialog, setMedDialog] = useState<{ med: Med | null; personId: string } | null>(null);
   const [doseDialog, setDoseDialog] = useState<{ target: Target; warning?: string | null; initial?: 'given' | 'skipped' } | null>(null);
@@ -84,7 +97,34 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const photos = useMemo(() => new Map(data.photos.map((p) => [p.id, p.data])), [data.photos]);
   const nameOf = (email: string) => (email === me ? t('names.you') : store.names?.get(email) ?? personName(email, { email: me }));
   const personOf = (id: string) => people.find((p) => p.id === id);
+  const addable = people.filter((p) => canAddVisit(p, role, me));
+  const imported = data.visits.map((v) => ({ title: visitTitle(v), at: v.at, calendarEventId: v.calendarEventId, calendarLink: v.calendarLink }));
+  // New calendar events that name someone in Health (whose it is is never assumed: one naming nobody waits for Import from calendar).
+  const suggested = useCalendarSuggestions({
+    auth,
+    words: visitCalendarWords(),
+    isImported: (m) => isImported(m, imported) || !fromCalendar(m, addable).person,
+    app: 'Health',
+  });
 
+  /** Calendar events in as visits: whose each is when its words name them; the first naming nobody opens, filled in, to choose. */
+  const importEvents = (list: CalendarMatch[]) => {
+    let added = 0;
+    let ask: VisitDraft | null = null;
+    for (const m of list) {
+      const { person, input } = fromCalendar(m, addable);
+      if (person) {
+        actions.saveVisit(null, { ...input, personId: person.id });
+        added++;
+      } else ask ??= { input };
+    }
+    if (added) notify(added === 1 ? t('common.added', { name: list[0].title }) : t('toast.visitsAdded', { count: added }));
+    if (ask) setVisitDialog({ visit: null, draft: ask });
+  };
+  const runImport = () => {
+    setImporting(true);
+    void calendarSearch.run(visitCalendarWords(), { limit: 25 });
+  };
   const setUrl = (changes: Record<string, string | null>) => {
     const url = new URL(location.href);
     for (const [k, v] of Object.entries(changes)) {
@@ -95,7 +135,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   };
   const chooseTab = (id: TabId) => {
     setTab(id);
-    setUrl({ tab: id === 'today' ? null : id, med: null });
+    setUrl({ tab: id === 'today' ? null : id, med: null, visit: null });
   };
   const choosePerson = (id: string | null) => {
     setSelected(id);
@@ -158,6 +198,52 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         empty={empty}
       />
     );
+  else if (tab === 'visits')
+    content = (
+      <Visits
+        store={store}
+        people={people}
+        selected={selected}
+        onSelect={choosePerson}
+        highlight={shownVisit}
+        onAdd={(personId) => setVisitDialog({ visit: null, draft: { personId } })}
+        onEdit={(v) => setVisitDialog({ visit: v })}
+        onMark={(v, status) => {
+          const undo = actions.markVisit(v, status);
+          notify(t(status === 'attended' ? 'toast.attended' : status === 'missed' ? 'toast.missed' : 'toast.unmarked', { title: visitTitle(v) }), status ? undo : undefined);
+        }}
+        onBookFollowUp={(v) => {
+          const day = followUpDay(v);
+          setVisitDialog({
+            visit: null,
+            draft: {
+              personId: v.personId,
+              input: {
+                kind: v.kind,
+                title: v.title,
+                at: day ? atTime(day, v.allDay ? undefined : toHhmm(v.at)) : v.at,
+                allDay: v.allDay,
+                minutes: v.minutes,
+                contactId: v.contactId,
+                location: v.location,
+                link: v.link,
+                prep: v.prep,
+                medList: v.medList,
+                remindBefore: v.remindBefore,
+                followUp: v.followUp,
+                followUpOf: v.id,
+              },
+            },
+          });
+        }}
+        onFollowUpDone={(v) => notify(t('toast.followUpDone', { title: visitTitle(v) }), actions.followUpDone(v))}
+        onPrint={print}
+        nameOf={nameOf}
+        onImport={calendarAvailable(user) ? runImport : undefined}
+        suggestions={<CalendarSuggestions suggestions={suggested.suggestions} now={now} onAdd={(m) => importEvents([m])} onDismiss={suggested.dismiss} />}
+        empty={empty}
+      />
+    );
   else if (tab === 'history') content = <History store={store} people={people} selected={selected} onSelect={choosePerson} nameOf={nameOf} onPrint={print} empty={empty} />;
   else if (tab === 'people')
     content = (
@@ -187,6 +273,12 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         onShowMeds={(id) => {
           choosePerson(id);
           chooseTab('medicines');
+        }}
+        onShowVisit={(id, visitId) => {
+          choosePerson(id);
+          chooseTab('visits');
+          setUrl({ visit: visitId });
+          setShownVisit(visitId);
         }}
         empty={empty}
       />
@@ -261,6 +353,51 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
           />
         )}
         {count && <CountDialog med={count} left={supplyLeft(count, data.doses)} onClose={() => setCount(null)} onSave={(n, refills) => notify(t('toast.counted', { med: medLabel(count) }), actions.countSupply(count, n, refills))} />}
+        {visitDialog && (
+          <VisitDialog
+            visit={visitDialog.visit}
+            draft={visitDialog.draft}
+            people={visitDialog.visit ? people.filter((p) => p.id === visitDialog.visit!.personId) : addable}
+            contacts={data.contacts}
+            notes={visitDialog.visit ? data.visitNotes.find((n) => n.id === visitDialog.visit!.id)?.text : undefined}
+            canNotes={(id) => {
+              const p = personOf(id);
+              return !!p && canKeepNotes(p, role, me);
+            }}
+            now={now}
+            onClose={() => setVisitDialog(null)}
+            onSave={(input, notes) => {
+              const p = personOf(input.personId);
+              actions.saveVisit(visitDialog.visit?.id ?? null, input, notes);
+              const title = visitTitle(input);
+              notify(visitDialog.visit ? t('toast.saved', { name: title }) : t('toast.addedFor', { med: title, name: p?.name ?? '' }));
+            }}
+            onDelete={
+              visitDialog.visit && canChangeVisit(visitDialog.visit, personOf(visitDialog.visit.personId)!, role, me)
+                ? () => notify(t('toast.removed', { name: visitTitle(visitDialog.visit!) }), actions.deleteVisit(visitDialog.visit!))
+                : undefined
+            }
+            onAddContact={(r) => setContact({ contact: null, role: r })}
+          />
+        )}
+        {importing && (
+          <CalendarImportDialog
+            state={calendarSearch.state}
+            records={imported}
+            intro={t('visits.importIntro')}
+            noneFound={t('visits.importNone')}
+            allImported={t('visits.importAll')}
+            onRetry={runImport}
+            onAdd={(list) => {
+              importEvents(list);
+              if (list.some((m) => !fromCalendar(m, addable).person)) setImporting(false);
+            }}
+            onClose={() => {
+              setImporting(false);
+              calendarSearch.reset();
+            }}
+          />
+        )}
         {contact && (
           <ContactDialog
             contact={contact.contact}

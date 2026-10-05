@@ -1,7 +1,7 @@
 import type { Contact } from '@huishouden/pwa-kit/contacts';
 import type { HouseholdHome } from '@huishouden/pwa-kit/home';
 import { addDays, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
-import type { Dose, Med, Person, PersonPhoto } from './model';
+import type { Dose, Med, Person, PersonPhoto, Visit, VisitNote } from './model';
 import { doseId, rowsBetween } from './meds';
 import { readersOf } from './people';
 
@@ -29,11 +29,15 @@ export interface HealthData {
   photos: PersonPhoto[];
   meds: Med[];
   doses: Dose[];
+  /** Each person's visits (appointments), past and to come. */
+  visits: Visit[];
+  /** The visits' notes: only those of people the reader keeps (admins and member carers). */
+  visitNotes: VisitNote[];
   /** The household's contacts shown in Health (doctors, pharmacies). */
   contacts: Contact[];
 }
 
-export const emptyData = (): HealthData => ({ people: [], photos: [], meds: [], doses: [], contacts: [] });
+export const emptyData = (): HealthData => ({ people: [], photos: [], meds: [], doses: [], visits: [], visitNotes: [], contacts: [] });
 
 const TODAY = toYmd(DEMO_NOW);
 const day = (offset: number) => addDays(TODAY, offset);
@@ -49,6 +53,7 @@ const ALEX_P = 'demo-person-alex';
 const GP = 'demo-contact-gp';
 const PEDS = 'demo-contact-pediatrician';
 const PHARMACY = 'demo-contact-pharmacy';
+const EYES = 'demo-contact-eyes';
 
 function person(id: string, order: number, data: Omit<Person, 'id' | 'readers' | 'createdAt' | 'by'>): Person {
   return { id, ...data, readers: readersOf(data), createdAt: CREATED + order * 60_000, by: SAM };
@@ -123,6 +128,33 @@ function contacts(): Contact[] {
     c(GP, 'Dr. Lena Hart', 'Doctor', '(555) 010-2231', { address: '12 Example Street', lat: 39.7983, lng: -89.6544 }),
     c(PEDS, 'Dr. Omar Velde', 'Pediatrician', '(555) 010-4410'),
     c(PHARMACY, 'CVS Pharmacy', 'Pharmacy', '(555) 010-7788', { website: 'https://www.cvs.com', address: '400 Example Avenue, Springfield', lat: 39.7817, lng: -89.6066 }),
+    c(EYES, 'Example Eye Clinic', 'Specialist', '(555) 010-3090', { address: '8 Example Road, Springfield', lat: 39.8102, lng: -89.6431 }),
+  ];
+}
+
+/**
+ * Visits: Oma Ria's diabetes check the day after tomorrow (fasting, the medicine list, a follow-up
+ * in three months) and her eye exam in two weeks; Noor's school vaccine yesterday, not marked yet;
+ * Alex's physio by video next week; and Ria's cardiology visit three weeks ago, attended, whose
+ * follow-up in a month is still to book.
+ */
+function visits(): Visit[] {
+  const v = (id: string, personId: string, data: Omit<Visit, 'id' | 'personId' | 'createdAt' | 'by' | 'remindBefore'> & Partial<Pick<Visit, 'remindBefore' | 'by'>>): Visit => ({
+    id: `demo-visit-${id}`, personId, remindBefore: [1440, 120], createdAt: CREATED, by: SAM, ...data,
+  });
+  return [
+    v('diabetes', RIA, { kind: 'checkup', title: 'Diabetes check', at: at(2, '09:15'), minutes: 30, contactId: GP, prep: ['Fasting from midnight'], medList: true, followUp: { every: 3, unit: 'month' } }),
+    v('eyes', RIA, { kind: 'eye', title: 'Eye exam', at: at(13, '14:00'), contactId: EYES, prep: ['Bring her glasses', 'Someone else drives home (eye drops)'], remindBefore: [2880, 120] }),
+    v('vaccine', NOOR, { kind: 'vaccine', title: 'School vaccine', at: at(-1, '15:30'), minutes: 20, contactId: PEDS, by: ALEX }),
+    v('physio', ALEX_P, { kind: 'therapy', title: 'Physio for the shoulder', at: at(6, '17:00'), minutes: 45, link: 'https://video.example.com/room/physio', remindBefore: [60], by: ALEX }),
+    v('cardio', RIA, { kind: 'specialist', title: 'Cardiology', at: at(-21, '11:00'), location: 'Example Heart Center, 30 Example Street', followUp: { every: 1, unit: 'month' }, status: 'attended', markedAt: at(-21, '12:30'), markedBy: DEMO_HELPER }),
+    v('dentist', NOOR, { kind: 'dentist', title: 'Check-up', at: at(-60, '10:00'), status: 'attended', markedAt: at(-60, '11:00'), markedBy: SAM }),
+  ];
+}
+
+function visitNotes(): VisitNote[] {
+  return [
+    { id: 'demo-visit-cardio', personId: RIA, text: 'Blood pressure a little high. Keep lisinopril as it is; check again in a month.', updatedAt: at(-21, '13:00'), by: SAM },
   ];
 }
 
@@ -131,7 +163,7 @@ export const DEMO_HOME: HouseholdHome = { address: '12 Example Lane, Springfield
 
 export function demoData(): HealthData {
   const m = meds();
-  return { people: people(), photos: [], meds: m, doses: doses(m), contacts: contacts() };
+  return { people: people(), photos: [], meds: m, doses: doses(m), visits: visits(), visitNotes: visitNotes(), contacts: contacts() };
 }
 
 export const DEMO_IDS = { RIA, NOOR, ALEX: ALEX_P };
