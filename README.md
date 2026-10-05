@@ -75,7 +75,7 @@ _Screenshots of the live site signed out, which shows an invented household date
 - **The assistant's appointments**: added before Health had visits, they were calendar items only; a
   keeper's device moves each into a visit (same id, the notes apart) the next time Health opens.
 - **Scan the label** (`@huishouden/pwa-kit/react/dose` `LabelScan`): read on the device, never
-  uploaded or kept. The form shows what was filled in, what to check, and the lines read but not used.
+  uploaded or kept. The form shows what was filled in, what to check, and the lines read but not used. A label photo can also be shared into Health from the phone's gallery (Share, then Health): it opens in a new medicine for the person on screen, or the first one you can edit; someone who can't add medicines is told so.
 
 ## Reminders, the portal and privacy
 

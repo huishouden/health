@@ -390,6 +390,8 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         {count && <CountDialog med={count} left={supplyLeft(count, data.doses)} onClose={() => setCount(null)} onSave={(n, refills) => notify(t('toast.counted', { med: medLabel(count) }), actions.countSupply(count, n, refills))} />}
         {visitDialog && (
           <VisitDialog
+            // Each queued calendar event mounts its own dialog, so none keeps the last one's fields.
+            key={visitDialog.visit?.id ?? visitDialog.draft?.input?.calendarEventId ?? `new-${draftQueue.length}`}
             visit={visitDialog.visit}
             draft={visitDialog.draft}
             people={visitDialog.visit ? people.filter((p) => p.id === visitDialog.visit!.personId) : addable}

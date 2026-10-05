@@ -102,6 +102,7 @@ test('the home carer sees when, where and what to bring, marks visits, but never
 const events: CalendarMatch[] = [
   { id: 'evt-noor-flu', title: "Noor's flu shot", start: new Date('2031-05-21T15:00:00').getTime(), end: new Date('2031-05-21T15:20:00').getTime(), allDay: false, location: '', description: '', link: 'https://calendar.example.com/e/noor', calendarName: 'Family' },
   { id: 'evt-dentist', title: 'Dentist', start: new Date('2031-05-22T09:00:00').getTime(), allDay: false, location: '5 Example Square', description: '', link: 'https://calendar.example.com/e/dentist', calendarName: 'Family' },
+  { id: 'evt-eyes', title: 'Eye exam', start: new Date('2031-05-23T11:00:00').getTime(), allDay: false, location: '', description: '', link: 'https://calendar.example.com/e/eyes', calendarName: 'Family' },
 ];
 
 test('import from calendar: an event naming someone is theirs; one naming nobody asks whose', async ({ page }) => {
@@ -133,4 +134,22 @@ test('new calendar events that name someone are suggested; Add puts them in', as
   await expect(card).not.toContainText('Dentist');
   await card.getByRole('button', { name: /^Add/ }).first().click();
   await expect(upcoming(page).locator('li', { hasText: "Noor's flu shot for Noor" })).toBeVisible();
+});
+
+test('Add all: each event naming nobody opens in turn, with its own day', async ({ page }) => {
+  await page.addInitScript((list) => {
+    (window as unknown as { __mockCalendarEvents: CalendarMatch[] }).__mockCalendarEvents = list;
+  }, events);
+  await open(page);
+  await page.getByRole('button', { name: 'Import from calendar' }).click();
+  await page.getByRole('dialog', { name: 'Import from calendar' }).getByRole('button', { name: /^Add all/ }).click();
+  const first = page.getByRole('dialog', { name: 'New visit' });
+  await expect(first.getByLabel('What for (optional)')).toHaveValue('Dentist');
+  await expect(first.getByLabel('Day')).toHaveValue('2031-05-22');
+  await first.getByLabel('Whose visit').selectOption({ label: 'Alex' });
+  await page.getByRole('dialog', { name: 'Visit for Alex' }).getByRole('button', { name: 'Save' }).click();
+  const second = page.getByRole('dialog', { name: 'New visit' });
+  await expect(second.getByLabel('What for (optional)')).toHaveValue('Eye exam');
+  await expect(second.getByLabel('Day')).toHaveValue('2031-05-23');
+  await expect(second.getByLabel('Whose visit')).toHaveValue('');
 });

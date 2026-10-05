@@ -69,7 +69,7 @@
   "toast.addedFor": "{med} toegevoegd voor {name}",
   "toast.stopped": "Gestopt met {med}",
   "toast.restarted": "{med} weer in gebruik",
-  "toast.shareNoEdit": "Alleen beheerders, en leden die voor iemand zorgen, kunnen medicijnen toevoegen.",
+  "toast.shareNoEdit": "Alleen beheerders en leden die voor iemand zorgen kunnen medicijnen toevoegen.",
   "toast.deletedMed": "{med} en de geschiedenis verwijderd",
   "toast.counted": "{med} geteld",
   "contacts.namePlaceholder": "Voorbeeld Huisartsenpraktijk",
