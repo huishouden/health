@@ -81,6 +81,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const [shownVisit, setShownVisit] = useState<string | null>(() => param('visit'));
   const [visitDialog, setVisitDialog] = useState<{ visit: Visit | null; draft?: VisitDraft } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [draftQueue, setDraftQueue] = useState<VisitDraft[]>([]);
   const calendarSearch = useCalendarSearch(auth, 'Health');
   const [personDialog, setPersonDialog] = useState<{ person: Person | null } | null>(null);
   const [medDialog, setMedDialog] = useState<{ med: Med | null; personId: string } | null>(null);
@@ -110,16 +111,20 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   /** Calendar events in as visits: whose each is when its words name them; the first naming nobody opens, filled in, to choose. */
   const importEvents = (list: CalendarMatch[]) => {
     let added = 0;
-    let ask: VisitDraft | null = null;
+    const ask: VisitDraft[] = [];
     for (const m of list) {
       const { person, input } = fromCalendar(m, addable);
       if (person) {
         actions.saveVisit(null, { ...input, personId: person.id });
         added++;
-      } else ask ??= { input };
+      } else ask.push({ input });
     }
-    if (added) notify(added === 1 ? t('common.added', { name: list[0].title }) : t('toast.visitsAdded', { count: added }));
-    if (ask) setVisitDialog({ visit: null, draft: ask });
+    if (added) notify(added === 1 ? t('common.added', { name: list.find((m) => fromCalendar(m, addable).person)!.title }) : t('toast.visitsAdded', { count: added }));
+    // Each event that named nobody opens in turn, to choose whose it is.
+    if (ask.length) {
+      setVisitDialog({ visit: null, draft: ask[0] });
+      setDraftQueue(ask.slice(1));
+    }
   };
   const runImport = () => {
     setImporting(true);
@@ -365,7 +370,10 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
               return !!p && canKeepNotes(p, role, me);
             }}
             now={now}
-            onClose={() => setVisitDialog(null)}
+            onClose={() => {
+              setVisitDialog(draftQueue.length ? { visit: null, draft: draftQueue[0] } : null);
+              setDraftQueue((q) => q.slice(1));
+            }}
             onSave={(input, notes) => {
               const p = personOf(input.personId);
               actions.saveVisit(visitDialog.visit?.id ?? null, input, notes);
@@ -373,7 +381,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
               notify(visitDialog.visit ? t('toast.saved', { name: title }) : t('toast.addedFor', { med: title, name: p?.name ?? '' }));
             }}
             onDelete={
-              visitDialog.visit && canChangeVisit(visitDialog.visit, personOf(visitDialog.visit.personId)!, role, me)
+              visitDialog.visit && personOf(visitDialog.visit.personId) && canChangeVisit(visitDialog.visit, personOf(visitDialog.visit.personId)!, role, me)
                 ? () => notify(t('toast.removed', { name: visitTitle(visitDialog.visit!) }), actions.deleteVisit(visitDialog.visit!))
                 : undefined
             }

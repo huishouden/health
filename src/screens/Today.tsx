@@ -179,7 +179,6 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
         <button
           type="button"
           className="-mx-2 mt-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-xl px-2 text-left text-base text-ink-soft hover:bg-sunken"
-          aria-label={t('today.showVisit', { title: visitTitle(visit), name: person.name })}
           onClick={() => onShowVisit(person.id, visit.id)}
         >
           <CalendarClock size={18} className="shrink-0 text-link" aria-hidden="true" />

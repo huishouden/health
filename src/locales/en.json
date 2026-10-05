@@ -87,7 +87,7 @@
   "today.forName": "for {name}",
   "today.skipFor": "Skip: {med} for {name}",
   "today.skip": "Skip",
-  "today.anotherTimeFor": "Another time: {med} for {name}",
+  "today.anotherTimeFor": "Late: another time for {med}, {name}",
   "today.late": "Late",
   "today.personToday": "{name} today",
   "today.showMeds": "Show {name}'s medicines",
@@ -259,10 +259,9 @@
   "toast.followUpDone": "No follow-up to book: {title}",
   "toast.visitsAdded": "{count, plural, one {Added # visit} other {Added # visits}}",
   "today.nextVisit": "{when}: {title}",
-  "today.showVisit": "{title} for {name}: show the visit",
   "visitDialog.new": "New visit",
   "visitDialog.newFor": "Visit for {name}",
-  "visitDialog.edit": "Change the visit",
+  "visitDialog.edit": "Edit the visit",
   "visitDialog.whose": "Whose visit",
   "visitDialog.choosePerson": "Choose a person",
   "visitDialog.kind": "What kind",
@@ -329,6 +328,7 @@
   "visits.noReminders": "No reminders",
   "visits.followUpAfter": "Follow-up {when}",
   "visits.inCalendar": "Open in calendar",
-  "visits.edit": "Change {title}",
-  "visits.followUps": "Follow-ups to book"
+  "visits.edit": "Edit {title}",
+  "visits.followUps": "Follow-ups to book",
+  "visits.helperNote": "Only the admins and the members who look after {name} can change a visit someone else added, or read the notes."
 }

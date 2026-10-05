@@ -56,6 +56,8 @@ export function Visits({ store, people, selected, onSelect, highlight, onAdd, on
   const groups = visitGroups(visits, now);
   const adders = shown.filter((p) => canAddVisit(p, role, me));
   const many = shown.length > 1;
+  // People whose visits this member sees but, as a helper carer, can't all change, nor read the notes of.
+  const limited = shown.filter((p) => canAddVisit(p, role, me) && !canKeepNotes(p, role, me));
   const nameFor = (v: Visit) => personOf(v.personId)?.name ?? '';
   const titleFor = (v: Visit) => (many ? t('visits.titleFor', { title: visitTitle(v), name: nameFor(v) }) : visitTitle(v));
 
@@ -146,6 +148,7 @@ export function Visits({ store, people, selected, onSelect, highlight, onAdd, on
 
       <section aria-label={t('visits.upcoming')} className={`${cardClass} p-5 sm:p-6`}>
         <h2 className="text-xl font-semibold text-ink">{t('visits.upcoming')}</h2>
+        {limited.length > 0 && <p className="mt-1 text-sm text-muted">{t('visits.helperNote', { name: formatList(limited.map((p) => p.name)) })}</p>}
         {groups.upcoming.length === 0 ? (
           <p className="mt-2 text-lg text-muted">{adders.length ? t('visits.noneEditable') : t('visits.none')}</p>
         ) : (
@@ -172,7 +175,7 @@ export function Visits({ store, people, selected, onSelect, highlight, onAdd, on
                   <div className="min-w-0 flex-1">
                     <p className="text-base font-medium text-ink [overflow-wrap:anywhere]">{titleFor(v)}</p>
                     <p className="text-sm text-muted">
-                      {[visitKindLabel(v.kind), state === 'attended' ? t('visits.wasAttended') : state === 'missed' ? t('visits.wasMissed') : t('visits.notMarked')].join(' · ')}
+                      {[capitalize(formatDayShort(v.at)), visitKindLabel(v.kind), state === 'attended' ? t('visits.wasAttended') : state === 'missed' ? t('visits.wasMissed') : t('visits.notMarked')].join(' · ')}
                     </p>
                     {note && <p className="mt-1 text-sm text-ink-soft [overflow-wrap:anywhere] whitespace-pre-line">{note}</p>}
                   </div>
@@ -229,14 +232,14 @@ function VisitRow({ visit: v, person, store, many, now, highlight, onEdit, onPri
   const title = visitTitle(v);
   const on = visitState(v, now) === 'now';
   return (
-    <li id={`visit-${v.id}`} className={`flex items-start gap-3 py-3 ${highlight ? 'rounded-xl bg-tint px-2' : ''}`} aria-label={many ? t('visits.titleFor', { title, name: person.name }) : title}>
+    <li id={`visit-${v.id}`} className={`flex items-start gap-3 py-3 ${highlight ? 'rounded-xl bg-tint px-2' : ''}`}>
       <DateTile at={v.at} />
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-lg leading-snug font-semibold text-ink [overflow-wrap:anywhere]">
           {title}
           {many && <span className="font-normal text-muted"> {t('today.forName', { name: person.name })}</span>}
         </p>
-        <p className={`text-base ${on ? 'font-semibold text-attention' : 'text-ink-soft'}`}>
+        <p className={`text-base ${on ? 'font-semibold text-ink' : 'text-ink-soft'}`}>
           {[on ? t('visits.now') : whenWords(v, now), v.title ? visitKindLabel(v.kind) : ''].filter(Boolean).join(' · ')}
         </p>
         {contact && (
@@ -254,7 +257,7 @@ function VisitRow({ visit: v, person, store, many, now, highlight, onEdit, onPri
             <MapPin size={16} aria-hidden="true" /> {where}
           </a>
         )}
-        {v.link && (
+        {v.link && /^https:\/\//i.test(v.link) && (
           <p>
             <a className={linkClass} href={v.link} target="_blank" rel="noopener noreferrer">
               <Video size={16} aria-hidden="true" /> {t('visits.join')}
@@ -262,7 +265,7 @@ function VisitRow({ visit: v, person, store, many, now, highlight, onEdit, onPri
           </p>
         )}
         {(v.prep?.length || v.medList) && (
-          <div className="flex flex-wrap items-center gap-2 pt-1" aria-label={t('visits.before')}>
+          <div role="group" className="flex flex-wrap items-center gap-2 pt-1" aria-label={t('visits.before')}>
             <span className={overline}>{t('visits.before')}</span>
             {v.prep?.map((p) => (
               <span key={p} className="rounded-full border border-line px-3 py-1 text-sm text-ink-soft">
@@ -279,7 +282,7 @@ function VisitRow({ visit: v, person, store, many, now, highlight, onEdit, onPri
         <p className="text-sm text-muted">{v.remindBefore.length ? t('visits.reminders', { leads: formatList(v.remindBefore.map((m) => leadWords(m).toLowerCase())) }) : t('visits.noReminders')}</p>
         {v.followUp && <p className="text-sm text-muted">{t('visits.followUpAfter', { when: followUpWords(v.followUp).toLowerCase() })}</p>}
         {note && <p className="text-sm text-ink-soft [overflow-wrap:anywhere] whitespace-pre-line">{note}</p>}
-        {v.calendarLink && (
+        {v.calendarLink && /^https:\/\//i.test(v.calendarLink) && (
           <a className={`${linkClass} text-sm`} href={v.calendarLink} target="_blank" rel="noopener noreferrer">
             <ExternalLink size={14} aria-hidden="true" /> {t('visits.inCalendar')}
           </a>

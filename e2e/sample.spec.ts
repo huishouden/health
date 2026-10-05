@@ -63,7 +63,7 @@ test('a second dose too soon asks first, naming who gave the first and when', as
 
 test('Late marks a dose at another time; Skip records a skip', async ({ page }) => {
   await open(page);
-  await needs(page).getByRole('button', { name: 'Another time: Metformin 500 mg for Oma Ria' }).click();
+  await needs(page).getByRole('button', { name: 'Late: another time for Metformin 500 mg, Oma Ria' }).click();
   const dialog = page.getByRole('dialog', { name: 'Metformin 500 mg for Oma Ria' });
   await dialog.getByLabel('Given at').fill('2031-05-14T08:15');
   await dialog.getByRole('button', { name: 'Mark given' }).click();

@@ -17,12 +17,12 @@ const toMark = (page: Page) => page.getByRole('region', { name: 'Did it happen?'
 
 test('coming up: the doctor and how far, what to bring, and the medicine list one tap away', async ({ page }) => {
   await open(page);
-  const diabetes = upcoming(page).getByRole('listitem', { name: 'Diabetes check for Oma Ria' });
+  const diabetes = upcoming(page).locator('li', { hasText: 'Diabetes check for Oma Ria' });
   await expect(diabetes).toContainText('Fri, May 16, 9:15 AM · Checkup');
   await expect(diabetes).toContainText('Dr. Lena Hart, 1.2 mi from home');
   await expect(diabetes).toContainText('Fasting from midnight');
   await expect(diabetes).toContainText('Reminders: the day before and 2 hours before');
-  await expect(upcoming(page).getByRole('listitem', { name: 'Physio for the shoulder for Alex' }).getByRole('link', { name: 'Join the video visit' })).toHaveAttribute('href', 'https://video.example.com/room/physio');
+  await expect(upcoming(page).locator('li', { hasText: 'Physio for the shoulder for Alex' }).getByRole('link', { name: 'Join the video visit' })).toHaveAttribute('href', 'https://video.example.com/room/physio');
   await diabetes.getByRole('button', { name: 'Bring the medicine list' }).click();
   await expect(page.getByRole('region', { name: 'Medicine list for Oma Ria' })).toBeVisible();
 });
@@ -53,7 +53,7 @@ test('adding a visit: whose, the kind, the day; it shows on Today too', async ({
   await forNoor.getByRole('button', { name: 'Arrive 15 minutes early' }).click();
   await forNoor.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Added Dentist for Noor')).toBeVisible();
-  const row = upcoming(page).getByRole('listitem', { name: 'Dentist for Noor' });
+  const row = upcoming(page).locator('li', { hasText: 'Dentist for Noor' });
   await expect(row).toContainText('Tomorrow at 4 PM');
   await expect(row).toContainText('Arrive 15 minutes early');
   await page.getByRole('button', { name: 'Today', exact: true }).click();
@@ -70,7 +70,7 @@ test('a follow-up to book: Book opens the next visit filled in, a month on; book
   await expect(dialog.getByLabel('What for (optional)')).toHaveValue('Cardiology');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Book a follow-up: Cardiology')).toHaveCount(0);
-  await expect(upcoming(page).getByRole('listitem', { name: 'Cardiology for Oma Ria' })).toBeVisible();
+  await expect(upcoming(page).locator('li', { hasText: 'Cardiology for Oma Ria' })).toBeVisible();
 });
 
 test('Not needed takes the follow-up off, with Undo', async ({ page }) => {
@@ -87,7 +87,8 @@ test('the home carer sees when, where and what to bring, marks visits, but never
   await expect(upcoming(page)).toContainText('Diabetes check');
   await expect(upcoming(page)).not.toContainText('Physio');
   await expect(page.getByText('Blood pressure a little high')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Change Diabetes check/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Edit Diabetes check/ })).toHaveCount(0);
+  await expect(upcoming(page)).toContainText('Only the admins and the members who look after Oma Ria can change a visit someone else added, or read the notes.');
   await page.getByRole('button', { name: 'Add visit' }).click();
   const dialog = page.getByRole('dialog', { name: 'Visit for Oma Ria' });
   await dialog.getByText('Where, what to bring').click();
@@ -111,13 +112,13 @@ test('import from calendar: an event naming someone is theirs; one naming nobody
   await page.getByRole('button', { name: 'Import from calendar' }).click();
   const dialog = page.getByRole('dialog', { name: 'Import from calendar' });
   await dialog.getByRole('button', { name: "Add Noor's flu shot" }).click();
-  await expect(upcoming(page).getByRole('listitem', { name: "Noor's flu shot for Noor" })).toContainText('Vaccine');
+  await expect(upcoming(page).locator('li', { hasText: "Noor's flu shot for Noor" })).toContainText('Vaccine');
   await dialog.getByRole('button', { name: 'Add Dentist' }).click();
   const whose = page.getByRole('dialog', { name: 'New visit' });
   await expect(whose.getByLabel('Day')).toHaveValue('2031-05-22');
   await whose.getByLabel('Whose visit').selectOption({ label: 'Alex' });
   await page.getByRole('dialog', { name: 'Visit for Alex' }).getByRole('button', { name: 'Save' }).click();
-  await expect(upcoming(page).getByRole('listitem', { name: 'Dentist for Alex' })).toBeVisible();
+  await expect(upcoming(page).locator('li', { hasText: 'Dentist for Alex' })).toBeVisible();
 });
 
 test('new calendar events that name someone are suggested; Add puts them in', async ({ page }) => {
@@ -131,5 +132,5 @@ test('new calendar events that name someone are suggested; Add puts them in', as
   await expect(card).toContainText("Noor's flu shot");
   await expect(card).not.toContainText('Dentist');
   await card.getByRole('button', { name: /^Add/ }).first().click();
-  await expect(upcoming(page).getByRole('listitem', { name: "Noor's flu shot for Noor" })).toBeVisible();
+  await expect(upcoming(page).locator('li', { hasText: "Noor's flu shot for Noor" })).toBeVisible();
 });

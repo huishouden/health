@@ -196,7 +196,7 @@ export function createActions(b: Backend): HealthActions {
           : { col: 'visits', id: v.id, data: visitUnmarked(v, b.now()) },
       ]);
     },
-    followUpDone: (v) => change([{ col: 'visits', id: v.id, data: { ...withoutId(v), followUpDoneAt: b.now(), updatedAt: b.now() } }]),
+    followUpDone: (v) => change([{ col: 'visits', id: v.id, data: { followUpDoneAt: b.now(), updatedAt: b.now() }, merge: true }]),
     saveContact: (id, input) => b.contacts.save(id, input),
     removeContact: (c) => b.contacts.remove(c),
     restoreContact: (c) => b.contacts.restore(c),

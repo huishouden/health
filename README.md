@@ -5,7 +5,7 @@ Medicines and care for everyone at home.
 Open it and the first thing you see answers "whose medicine is due now?": every dose due or not
 marked yet, for everyone the household looks after, each with Given, Skip and Late (another time),
 and Undo. Below that, each person's day: what was given, by whom and when, what is still to come,
-the medicines taken when needed (with how long since the last dose), and anything running low.
+the medicines taken when needed (with how long since the last dose), anything running low, and the next visit within a week, one tap to it.
 Medicines holds each person's list (dose, when, with food or not, who prescribed it, which pharmacy
 and how far it is from home, supply and refills); a pharmacy label can be scanned to fill it in. Visits holds
 each person's appointments: a checkup, a specialist, the dentist, the eye doctor, a lab test, a vaccine or therapy,
@@ -88,7 +88,7 @@ writes for the rest of the suite names its audience, the household's admins and 
 | Portal Today and Calendar (`personalAgenda`) | Each person's dose times today and tomorrow | "Medicine for Oma Ria", "2 medicines": never a medicine's name |
 | Portal Today and Calendar, own calendars (`personalAgenda`) | Each visit, a month back to half a year ahead | "Appointment for Oma Ria"; the kind, doctor, place and what to bring only in a reader's own calendar with Health details on; never the notes |
 | Portal To-do (`personalTodos`) | A visit over with a follow-up nobody booked, with Booked and Not needed | "Book a follow-up for Oma Ria", "Around Aug 15" |
-| Notifications (`personalReminders`) | Before each visit, at its lead times, to the person's carers (else the person, else an admin) | "Appointment for Oma Ria": "Tomorrow at 9:15 AM: Checkup: Diabetes check with Dr. Lena Hart, 12 Example Street. Fasting from midnight and bring the medicine list." |
+| Notifications (`personalReminders`) | Before each visit, at its lead times, to the person's carers (else the person, else an admin) | "Appointment for Oma Ria": "Tomorrow at 9:15 AM: Checkup: Diabetes check with Dr. Example, 12 Example Street. Fasting from midnight and bring the medicine list." (a doctor marked private only when no helper carer is told) |
 | Portal To-do (`personalTodos`) | A dose time not marked in the last 24 hours, with Given and Skipped; a medicine running low, with Ordered | "Not marked: 8 AM medicine for Oma Ria", "Refill a medicine for Oma Ria" |
 | Notifications (`personalReminders`, sent by [huishouden/notify](https://github.com/huishouden/notify)) | At each dose time to the main carer; if still not marked after the medicine's window (30 minutes unless changed), to the other carers; a week before a medicine runs out | The medicine's name, on the recipients' own devices |
 
@@ -117,7 +117,7 @@ Rules and their emulator tests: [huishouden/rules](https://github.com/huishouden
 
 What the suite sends to its error and usage reports is described on the portal's
 [Privacy](https://huishouden-piekstra.web.app/privacy) page. Health also registers every medicine and
-person name it holds with the kit's `setSensitiveWords`, so none of them can reach a report.
+person name it holds, and each visit's title, place and what to bring, with the kit's `setSensitiveWords`, so none of them can reach a report.
 
 ## Development
 

@@ -47,7 +47,9 @@ export function VisitDialog({ visit, draft, people, contacts, notes, canNotes, n
   const t = useT();
   const home = useHome();
   const start: Partial<VisitInput> = visit ?? draft?.input ?? {};
-  const [personId, setPersonId] = useState(visit?.personId ?? draft?.personId ?? (people.length === 1 ? people[0].id : ''));
+  // A calendar event that named nobody is never assumed to be anyone's: whose it is gets chosen.
+  const fromCalendar = !visit && !!draft?.input?.calendarEventId && !draft.personId;
+  const [personId, setPersonId] = useState(visit?.personId ?? draft?.personId ?? (people.length === 1 && !fromCalendar ? people[0].id : ''));
   const [kind, setKind] = useState<VisitKind>(start.kind ?? 'checkup');
   const [title, setTitle] = useState(start.title ?? '');
   const [day, setDay] = useState(start.at ? toYmd(start.at) : addDays(toYmd(now), 1));
@@ -133,7 +135,7 @@ export function VisitDialog({ visit, draft, people, contacts, notes, canNotes, n
           save();
         }}
       >
-        {!visit && people.length > 1 && (
+        {!visit && (people.length > 1 || fromCalendar) && (
           <Field label={t('visitDialog.whose')}>
             <select className={selectClass} value={personId} onChange={(e) => setPersonId(e.target.value)}>
               <option value="">{t('visitDialog.choosePerson')}</option>
@@ -210,7 +212,7 @@ export function VisitDialog({ visit, draft, people, contacts, notes, canNotes, n
               )}
             </div>
             <Field label={t('visitDialog.link')} hint={linkOk ? t('visitDialog.linkHint') : t('visitDialog.linkBad')}>
-              <input className={inputClass} type="url" inputMode="url" value={link} maxLength={VISIT_LIMITS.link} onChange={(e) => setLink(e.target.value)} placeholder="https://" autoComplete="off" />
+              <input className={inputClass} type="url" inputMode="url" aria-invalid={!linkOk} value={link} maxLength={VISIT_LIMITS.link} onChange={(e) => setLink(e.target.value)} placeholder="https://" autoComplete="off" />
             </Field>
 
             <fieldset>

@@ -105,7 +105,10 @@ describe('visits', () => {
     const diabetes = visits.find((i) => i.ref.endsWith('demo-visit-diabetes'))!;
     expect(diabetes).toMatchObject({ title: 'Appointment for Oma Ria', who: 'Oma Ria', private: true, allDay: false, audience: [DEMO_HELPER, SAM] });
     expect(diabetes.detail).toBeUndefined();
-    expect(diabetes.calendarDetail).toBe('Checkup: Diabetes check with Dr. Lena Hart · 12 Example Street · Fasting from midnight · bring the medicine list');
+    // Dr. Hart is a private contact and Jo, a helper carer, reads Ria's items: the doctor isn't named.
+    expect(diabetes.calendarDetail).toBe('Checkup: Diabetes check · Fasting from midnight · bring the medicine list');
+    // Noor's readers are all members: her private pediatrician is.
+    expect(visits.find((i) => i.ref.endsWith('demo-visit-vaccine'))!.calendarDetail).toBe('Vaccine: School vaccine with Dr. Omar Velde');
     expect(diabetes.url).toBe(`${SUITE_ORIGIN}/health/?tab=visits&person=demo-person-ria&visit=demo-visit-diabetes`);
     expect(visits.find((i) => i.ref.endsWith('demo-visit-cardio'))!.status).toBe('done');
     for (const i of visits) expect(leaksNotes(JSON.stringify(i))).toEqual([]);
@@ -116,7 +119,8 @@ describe('visits', () => {
     const at = new Date(2031, 4, 16, 9, 15).getTime();
     expect(diabetes.map((r) => r.at)).toEqual([at - 86_400_000, at - 2 * 3_600_000]);
     expect(diabetes[0]).toMatchObject({ title: 'Appointment for Oma Ria', recipients: [DEMO_HELPER, SAM], audience: [DEMO_HELPER, SAM] });
-    expect(diabetes[0].body).toBe('Tomorrow at 9:15 AM: Checkup: Diabetes check with Dr. Lena Hart, 12 Example Street. Fasting from midnight and bring the medicine list.');
+    expect(diabetes[0].body).toBe('Tomorrow at 9:15 AM: Checkup: Diabetes check. Fasting from midnight and bring the medicine list.');
+    expect(JSON.stringify(reminderItems(input))).not.toContain('Lena Hart');
     // Alex's own visit reminds Alex, an hour before; nothing for visits already over.
     expect(reminderItems(input).filter((r) => r.ref === 'health:visit:demo-visit-physio').map((r) => r.recipients)).toEqual([[ALEX]]);
     expect(reminderItems(input).some((r) => r.ref === 'health:visit:demo-visit-vaccine')).toBe(false);
