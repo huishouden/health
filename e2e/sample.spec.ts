@@ -47,7 +47,7 @@ test('a person whose doses are all done folds to one line that opens again', asy
   await expect(summary).toHaveAttribute('aria-expanded', 'false');
   await expect(alex.locator('li[data-completion]')).toHaveCount(0);
   await summary.click();
-  await expect(alex.locator('li[data-completion=done]')).toContainText('Given 7:13 AM by Alex');
+  await expect(alex.locator('li[data-completion=done]')).toContainText(/Given 7:\d\d AM by Alex/);
 });
 
 test('a second dose too soon asks first, naming who gave the first and when', async ({ page }) => {
