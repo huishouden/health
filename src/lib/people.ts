@@ -3,6 +3,7 @@
 
 import { householdRole, type Role } from '@huishouden/pwa-kit/roles';
 import { cleanAudience } from '@huishouden/pwa-kit/audience';
+import { personAudience, visitRecipients as kitVisitRecipients } from '@huishouden/pwa-kit/visit';
 import { isYmd, toYmd } from '@huishouden/pwa-kit/time';
 import type { Person, PersonData } from './model';
 
@@ -50,10 +51,10 @@ export function admins(h: HouseholdLike): string[] {
 /**
  * Who may read what Health publishes about a person (agenda items, to-dos, reminders): the
  * household's admins, the person's carers and the person themself, when they are members and not
- * kids. Lowercase and sorted.
+ * kids. Lowercase and sorted. The kit's rule, shared with the household tools.
  */
 export function audienceOf(p: Pick<PersonData, 'readers'>, h: HouseholdLike): string[] {
-  return cleanAudience([...admins(h), ...p.readers.filter(notKid(h))]);
+  return personAudience(p, h);
 }
 
 /** Reminded at each dose time: the main carer, else the person themself, else the first admin. */
@@ -101,14 +102,5 @@ export const canMarkVisit = canSee;
 /** A visit's notes (what the doctor said): only the person's keepers read and write them. */
 export const canKeepNotes = canEdit;
 
-/**
- * Told before a visit: the person's carers, else the person themself, else the admins; never kids.
- * Everyone who might take them along, not only the one who gives the medicines.
- */
-export function visitRecipients(p: Pick<PersonData, 'carers' | 'email'>, h: HouseholdLike): string[] {
-  const ok = notKid(h);
-  const carers = p.carers.map(lower).filter(ok);
-  if (carers.length) return cleanAudience(carers);
-  if (p.email && ok(lower(p.email))) return [lower(p.email)];
-  return admins(h).slice(0, 1);
-}
+/** Told before a visit: the person's carers, else the person themself, else an admin; never kids (the kit's rule). */
+export const visitRecipients = (p: Pick<PersonData, 'carers' | 'email'>, h: HouseholdLike): string[] => kitVisitRecipients(p, h);
