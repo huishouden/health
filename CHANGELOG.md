@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/huishouden/health/compare/v1.5.0...v1.5.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **today:** a given dose looks done, an open one says Give (kit 0.86.0) ([#24](https://github.com/huishouden/health/issues/24)) ([67f7323](https://github.com/huishouden/health/commit/67f7323bd80e6b11728b14769fd90c0b3cd809ff))
+
 ## [1.5.0](https://github.com/huishouden/health/compare/v1.4.1...v1.5.0) (2026-10-04)
 
 
