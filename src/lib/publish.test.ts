@@ -117,8 +117,10 @@ describe('the sender drops a reminder once it is done elsewhere', () => {
     const person = data.people.find((p) => p.id === 'demo-person-ria')!;
     expect(sourceReads('health', source)).toContain('healthPeople/demo-person-ria');
     const read = new Map<string, Record<string, unknown> | null>([['healthPeople/demo-person-ria', { readers: person.readers }]]);
-    expect(sourceAllowed('health', source, person.readers[0], 'member', read)).toBe(true);
-    expect(sourceAllowed('health', source, 'nobody@example.com', 'member', read)).toBe(false);
+    expect(sourceAllowed('health', source, person.readers[0], 'member', read, { personal: true })).toBe(true);
+    expect(sourceAllowed('health', source, 'nobody@example.com', 'member', read, { personal: true })).toBe(false);
+    // Never on a shared reminder, which every member reads.
+    expect(sourceAllowed('health', source, person.readers[0], 'member', read)).toBe(false);
     // The late one for the other carers names the same doses.
     const late = items.find((r) => r.ref === 'health:late:demo-person-ria' && new Date(r.at).getHours() === 18)!;
     expect(stored(late)).toEqual(source);
