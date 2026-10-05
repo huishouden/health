@@ -69,6 +69,7 @@
   "toast.addedFor": "Se agregó {med} para {name}",
   "toast.stopped": "Se dejó {med}",
   "toast.restarted": "Se vuelve a tomar {med}",
+  "toast.shareNoEdit": "Solo los administradores, y los miembros que cuidan de alguien, pueden añadir medicamentos.",
   "toast.deletedMed": "Se eliminó {med} y su historial",
   "toast.counted": "Se contó {med}",
   "contacts.namePlaceholder": "Consultorio Ejemplo",

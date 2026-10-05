@@ -100,12 +100,19 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   useEffect(() => {
     if (!sharedImages) return;
     const person = people.find((p) => p.id === selected && canEdit(p, role, me)) ?? people.find((p) => canEdit(p, role, me));
-    if (!person) return;
+    if (!person) {
+      // Nobody here may add a medicine (a helper, a kid): say so rather than open on Today as if nothing was shared.
+      if (people.length) {
+        setSharedImages(null);
+        notify(t('toast.shareNoEdit'));
+      }
+      return;
+    }
     setSharedImages(null);
     setTab('medicines');
     setSelected(person.id);
     setMedDialog({ med: null, personId: person.id, images: sharedImages });
-  }, [sharedImages, people, selected, role, me]);
+  }, [sharedImages, people, selected, role, me, notify, t]);
 
   const setUrl = (changes: Record<string, string | null>) => {
     const url = new URL(location.href);

@@ -250,6 +250,17 @@ test('a helper sees only the people they look after and cannot change medicines'
   await expect(needs(page).getByRole('button', { name: 'Give Metformin 500 mg to Oma Ria' })).toBeVisible();
 });
 
+test('a helper who shares a label photo to Health is told they cannot add medicines', async ({ page }) => {
+  await open(page, './?as=helper&tab=medicines');
+  await page.evaluate(async () => {
+    const cache = await caches.open('hh-share-images');
+    await cache.put(new URL('hh-shared-image-0', location.href).href, new Response('photo', { headers: { 'Content-Type': 'image/jpeg', 'X-File-Name': 'label.jpg' } }));
+  });
+  await page.goto('./?as=helper&share=image');
+  await expect(page.getByText('Only admins, and members who care for someone, can add medicines.')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('a kid sees no medicines', async ({ page }) => {
   await open(page, './?as=kid');
   await expect(page.getByText('Medicines are looked after by the grown-ups.')).toBeVisible();

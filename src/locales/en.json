@@ -69,6 +69,7 @@
   "toast.addedFor": "Added {med} for {name}",
   "toast.stopped": "Stopped {med}",
   "toast.restarted": "Taking {med} again",
+  "toast.shareNoEdit": "Only admins, and members who care for someone, can add medicines.",
   "toast.deletedMed": "Deleted {med} and its history",
   "toast.counted": "Counted {med}",
   "contacts.namePlaceholder": "Example Family Practice",
