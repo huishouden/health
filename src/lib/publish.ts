@@ -15,7 +15,7 @@
 
 import type { PersonalAgendaInput } from '@huishouden/pwa-kit/agenda';
 import type { PersonalTodoInput } from '@huishouden/pwa-kit/todos';
-import type { PersonalReminderInput } from '@huishouden/pwa-kit/reminders';
+import type { PersonalReminderInput, ReminderSource } from '@huishouden/pwa-kit/reminders';
 import { reminderId } from '@huishouden/pwa-kit/reminders';
 import { addDays, atClock, clockWords, DAY, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
 import { capitalize } from '@huishouden/pwa-kit/i18n';
@@ -129,6 +129,22 @@ export function todoItems(input: PublishInput): PersonalTodoInput[] {
 /** How far ahead dose reminders are written; the app re-syncs on open and on every change. */
 export const REMINDER_DAYS = 7;
 
+/**
+ * What a dose-time reminder is about, for the shared sender to check before sending: the doses it
+ * names, due while any of them is unmarked (its dose record, `doseId`, not yet written). Marked
+ * given or skipped anywhere (another carer's phone, the portal's To-do list), it is deleted unsent.
+ * None past 8 doses at one time: the sender checks at most 8, and the reminder then always goes out.
+ */
+export function dosesSource(personId: string, rows: readonly { med: Pick<Med, 'id'>; slot: { key: string } }[]): ReminderSource | undefined {
+  if (rows.length === 0 || rows.length > 8) return undefined;
+  return { checks: rows.map((r) => ({ doc: `healthPeople/${personId}/doses/${doseId(r.med.id, r.slot.key)}`, absent: true as const })), any: true };
+}
+
+/** What a refill reminder is about: the medicine, until a refill is ordered (`refillOrderedAt` changes). */
+export const refillSource = (personId: string, med: Pick<Med, 'id' | 'refillOrderedAt'>): ReminderSource => ({
+  checks: [{ doc: `healthPeople/${personId}/meds/${med.id}`, due: [{ field: 'refillOrderedAt', in: [med.refillOrderedAt ?? null] }] }],
+});
+
 /** Push reminders: dose times, unmarked doses for the other carers, and refills. */
 export function reminderItems(input: PublishInput): PersonalReminderInput[] {
   const { now, household } = input;
@@ -142,6 +158,7 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
       const open = g.rows.filter((r) => !handled(r.state));
       if (!open.length) continue;
       const names = open.map((r) => [medLabel(r.med), doseText(r.med)].filter(Boolean).join(', ')).join('; ');
+      const source = dosesSource(person.id, open);
       if (main && g.at > now) {
         out.push({
           id: reminderId(`health:dose:${person.id}`, g.at),
@@ -154,6 +171,7 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
           recipients: [main],
           ref: `health:dose:${person.id}`,
           audience,
+          ...(source ? { source } : {}),
         });
       }
       const windows = open.map((r) => r.med.escalateMinutes).filter((n) => n > 0);
@@ -170,6 +188,7 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
         recipients: others,
         ref: `health:late:${person.id}`,
         audience,
+        ...(source ? { source } : {}),
       });
     }
     if (!main) continue;
@@ -190,6 +209,7 @@ export function reminderItems(input: PublishInput): PersonalReminderInput[] {
         recipients: [main],
         ref: `health:refill:${m.id}`,
         audience,
+        source: refillSource(person.id, m),
       });
     }
   }
