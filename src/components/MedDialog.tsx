@@ -19,11 +19,13 @@ type Food = 'with' | 'empty' | 'either';
 
 const ESCALATE_CHOICES = [0, 15, 30, 60, 120];
 
-export function MedDialog({ med, person, contacts, now, onSave, onStop, onRestart, onDelete, onAddContact, onClose }: {
+export function MedDialog({ med, person, contacts, now, images, onSave, onStop, onRestart, onDelete, onAddContact, onClose }: {
   med: Med | null;
   person: Person;
   contacts: Contact[];
   now: number;
+  /** Label photos shared into the app, read as soon as the dialog opens. */
+  images?: File[];
   onSave: (input: MedInput) => void;
   onStop?: () => void;
   onRestart?: () => void;
@@ -201,7 +203,7 @@ export function MedDialog({ med, person, contacts, now, onSave, onStop, onRestar
           save();
         }}
       >
-        {!med && <LabelScan onRead={fill} />}
+        {!med && <LabelScan onRead={fill} images={images} />}
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label={t('history.medicine')}>
             <input className={inputClass} value={name} maxLength={LIMITS.medName} onChange={(e) => setName(e.target.value)} placeholder="Lisinopril" autoComplete="off" /* i18n-ignore: a medicine name */ />

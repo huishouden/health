@@ -100,6 +100,66 @@ test('Scan the label shows what it filled, and what it read but did not use', as
   await expect(page.getByText('Added Metformin 500 mg for Oma Ria')).toBeVisible();
 });
 
+const labelText = () => readFileSync(new URL('./fixtures/label.txt', import.meta.url), 'utf8');
+const mockLabel = (page: Page) =>
+  page.addInitScript((text) => {
+    (window as unknown as { __mockLabelText: string }).__mockLabelText = text;
+  }, labelText());
+const openAddMedicine = async (page: Page) => {
+  await open(page, './?tab=medicines&person=demo-person-ria');
+  await page.getByRole('region', { name: "Oma Ria's medicines" }).getByRole('button', { name: 'Add medicine' }).click();
+  return page.getByRole('dialog', { name: 'Medicine for Oma Ria' });
+};
+
+test('Scan the label offers the camera and the library, and only the camera forces the camera', async ({ page }) => {
+  await mockLabel(page);
+  const dialog = await openAddMedicine(page);
+  await expect(dialog.getByRole('button', { name: 'Take a photo' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Choose photos' })).toBeVisible();
+  await expect(dialog.locator('input[type=file][capture=environment]')).toHaveCount(1);
+  await expect(dialog.locator('input[type=file]:not([capture])')).toHaveCount(1);
+  // A photo already on the phone: no camera involved.
+  await dialog.getByLabel('Label photo').setInputFiles({ name: 'from-library.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('photo') });
+  await expect(dialog.getByLabel('Medicine', { exact: true })).toHaveValue('Metformin');
+});
+
+test('Scan the label takes the front and the back of a box together', async ({ page }) => {
+  await mockLabel(page);
+  const dialog = await openAddMedicine(page);
+  await dialog
+    .getByLabel('Label photo')
+    .setInputFiles([
+      { name: 'front.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('front') },
+      { name: 'back.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('back') },
+    ]);
+  await expect(dialog.getByRole('region', { name: 'Filled in from the label' })).toContainText('MedicineMetformin');
+});
+
+test('Scan the label reads an image pasted with Ctrl+V', async ({ page }) => {
+  await mockLabel(page);
+  const dialog = await openAddMedicine(page);
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(['photo'], 'pasted.png', { type: 'image/png' }));
+    document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(dialog.getByLabel('Medicine', { exact: true })).toHaveValue('Metformin');
+});
+
+test('Share → Health with a label photo opens Scan the label with it', async ({ page }) => {
+  await mockLabel(page);
+  await open(page);
+  // What the service worker keeps for a photo shared from the gallery.
+  await page.evaluate(async () => {
+    const cache = await caches.open('hh-share-images');
+    await cache.put(new URL('hh-shared-image-0', location.href).href, new Response('photo', { headers: { 'Content-Type': 'image/jpeg', 'X-File-Name': 'label.jpg' } }));
+  });
+  await page.goto('./?share=image');
+  const dialog = page.getByRole('dialog', { name: /^Medicine for / });
+  await expect(dialog.getByRole('region', { name: 'Filled in from the label' })).toContainText('MedicineMetformin');
+  await expect(page).not.toHaveURL(/share=image/);
+});
+
 test('the list for the doctor has allergies and every current medicine', async ({ page }) => {
   await open(page, './?tab=medicines&person=demo-person-ria');
   await page.getByRole('button', { name: 'List for the doctor' }).click();
