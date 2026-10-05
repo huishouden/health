@@ -3,7 +3,8 @@
 
 import { householdRole, type Role } from '@huishouden/pwa-kit/roles';
 import { cleanAudience } from '@huishouden/pwa-kit/audience';
-import { personAudience, visitRecipients as kitVisitRecipients } from '@huishouden/pwa-kit/visit';
+import { personAudience } from '@huishouden/pwa-kit/audience';
+import { visitRecipients as kitVisitRecipients } from '@huishouden/pwa-kit/visit';
 import { isYmd, toYmd } from '@huishouden/pwa-kit/time';
 import type { Person, PersonData } from './model';
 
