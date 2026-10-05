@@ -52,6 +52,10 @@ export function logsOf(doses: readonly Dose[], medId: string): (DoseLog & Dose)[
 /** The id a scheduled dose is stored under, so marking it twice (two devices) writes one document. */
 export const doseId = (medId: string, slot: string) => `${medId}_${slot.replace(/[^0-9T-]/g, '')}`;
 
+/** Where a person's dose records and medicines live under the household. */
+export const dosesCol = (personId: string) => `healthPeople/${personId}/doses`;
+export const medsCol = (personId: string) => `healthPeople/${personId}/meds`;
+
 /** "Every day at 8 AM and 8 PM", "Every other day at 9 AM", "As needed, at least 4 hours apart, at most 3 a day". */
 export function scheduleText(m: Med): string {
   if (m.asNeeded) {

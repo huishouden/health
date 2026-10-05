@@ -121,6 +121,13 @@ describe('the sender drops a reminder once it is done elsewhere', () => {
     expect(sourceAllowed('health', source, 'nobody@example.com', 'member', read, { personal: true })).toBe(false);
     // Never on a shared reminder, which every member reads.
     expect(sourceAllowed('health', source, person.readers[0], 'member', read)).toBe(false);
+    // An admin who isn't a reader, and a helper who is (the tablet, a sitter): yes. A kid among the readers: never.
+    const P = { personal: true };
+    const withReaders = (readers: string[]) => new Map<string, Record<string, unknown> | null>([['healthPeople/demo-person-ria', { readers }]]);
+    expect(sourceAllowed('health', source, ALEX, 'admin', withReaders(person.readers.filter((e) => e !== ALEX)), P)).toBe(true);
+    expect(person.readers).toContain(DEMO_HELPER);
+    expect(sourceAllowed('health', source, DEMO_HELPER, 'helper', read, P)).toBe(true);
+    expect(sourceAllowed('health', source, 'kid@example.com', 'kid', withReaders([...person.readers, 'kid@example.com']), P)).toBe(false);
     // The late one for the other carers names the same doses.
     const late = items.find((r) => r.ref === 'health:late:demo-person-ria' && new Date(r.at).getHours() === 18)!;
     expect(stored(late)).toEqual(source);
@@ -133,5 +140,13 @@ describe('the sender drops a reminder once it is done elsewhere', () => {
     const med = data.meds.find((m) => m.id === 'demo-med-metformin')!;
     expect(stillDue(source, new Map([[check.doc, { ...med }]]))).toBe(true);
     expect(stillDue(source, new Map([[check.doc, { ...med, refillOrderedAt: DEMO_NOW }]]))).toBe(false);
+    // The to-do's Ordered writes the medicine the source reads; only the person's readers may use it.
+    const todo = todoItems(input).find((t) => t.ref === 'refill:demo-person-ria:demo-med-metformin');
+    if (todo) expect(todo.done!.ops.map((o) => `${o.col}/${o.id}`)).toEqual([check.doc]);
+    expect(check.doc).toBe('healthPeople/demo-person-ria/meds/demo-med-metformin');
+    const person = data.people.find((p) => p.id === 'demo-person-ria')!;
+    const read = new Map<string, Record<string, unknown> | null>([['healthPeople/demo-person-ria', { readers: person.readers }]]);
+    expect(sourceAllowed('health', source, person.readers[0], 'member', read, { personal: true })).toBe(true);
+    expect(sourceAllowed('health', source, 'nobody@example.com', 'member', read, { personal: true })).toBe(false);
   });
 });
