@@ -2,13 +2,14 @@ import type { Contact, ContactInput, ContactWrites } from '@huishouden/pwa-kit/c
 import { changes, stampFor, withoutId, type Backend as KitBackend, type Op as KitOp, type Undo } from '@huishouden/pwa-kit/store';
 import { track } from '@huishouden/pwa-kit/observability';
 import type { Role } from '@huishouden/pwa-kit/roles';
+import { visitDoc, visitMark, visitNoteDoc, visitUnmarked } from '@huishouden/pwa-kit/visit';
 import { doseDoc, medDoc, personDoc, type MedInput, type PersonInput } from '../lib/build';
 import type { HealthData } from '../lib/demo';
-import type { Dose, DoseStatus, Med, Person, PersonPhoto } from '../lib/model';
+import type { Dose, DoseStatus, Med, Person, PersonPhoto, Visit, VisitInput, VisitNote, VisitStatus } from '../lib/model';
 import { doseId } from '../lib/meds';
 
 /** The lists the actions write, by data key; the live backend turns them into paths under the person. */
-export type DataKey = 'people' | 'photos' | 'meds' | 'doses';
+export type DataKey = 'people' | 'photos' | 'meds' | 'doses' | 'visits' | 'visitNotes';
 export type Op = KitOp<DataKey>;
 
 /**
@@ -27,6 +28,8 @@ export interface PersonBundle {
   photo?: PersonPhoto;
   meds: Med[];
   doses: Dose[];
+  visits: Visit[];
+  visitNotes: VisitNote[];
 }
 
 export interface MarkInput {
@@ -57,6 +60,17 @@ export interface HealthActions {
   /** Sets the count on hand now (also after a refill). */
   countSupply(m: Med, supply: number, refills?: number): Undo;
   refillOrdered(m: Med): Undo;
+  /**
+   * Adds or changes a visit; returns its id. `notes` (keepers only) replaces its notes, an empty
+   * string removes them, undefined leaves them alone.
+   */
+  saveVisit(id: string | null, input: VisitInput, notes?: string): string;
+  /** Removes a visit and its notes. */
+  deleteVisit(v: Visit): Undo;
+  /** Attended or Missed, by the signed-in member; null takes the mark back. */
+  markVisit(v: Visit, status: VisitStatus | null): Undo;
+  /** The follow-up is booked elsewhere or not needed: its to-do goes. */
+  followUpDone(v: Visit): Undo;
   saveContact(id: string | null, input: ContactInput): void;
   removeContact(c: Contact): void;
   restoreContact(c: Contact): void;
@@ -94,9 +108,13 @@ export function createActions(b: Backend): HealthActions {
         photo: d.photos.find((p) => p.id === person.id),
         meds: d.meds.filter((m) => m.personId === person.id),
         doses: d.doses.filter((x) => x.personId === person.id),
+        visits: d.visits.filter((x) => x.personId === person.id),
+        visitNotes: d.visitNotes.filter((x) => x.personId === person.id),
       };
       // Children first: the rules read the person to allow removing what is under them.
       const ops: Op[] = [
+        ...bundle.visitNotes.map((x): Op => ({ col: 'visitNotes', id: x.id, data: null })),
+        ...bundle.visits.map((x): Op => ({ col: 'visits', id: x.id, data: null })),
         ...bundle.doses.map((x): Op => ({ col: 'doses', id: x.id, data: null })),
         ...bundle.meds.map((m): Op => ({ col: 'meds', id: m.id, data: null })),
         ...(bundle.photo ? [{ col: 'photos' as const, id: person.id, data: null }] : []),
@@ -111,6 +129,8 @@ export function createActions(b: Backend): HealthActions {
         ...(bundle.photo ? [{ col: 'photos' as const, id: bundle.person.id, data: withoutId(bundle.photo) }] : []),
         ...bundle.meds.map((m): Op => ({ col: 'meds', id: m.id, data: withoutId(m) })),
         ...bundle.doses.map((x): Op => ({ col: 'doses', id: x.id, data: withoutId(x) })),
+        ...bundle.visits.map((x): Op => ({ col: 'visits', id: x.id, data: withoutId(x) })),
+        ...bundle.visitNotes.map((x): Op => ({ col: 'visitNotes', id: x.id, data: withoutId(x) })),
       ]);
     },
     savePhoto: (personId, dataUrl) => change([{ col: 'photos', id: personId, data: { data: dataUrl, updatedAt: b.now(), by: b.me } }]),
@@ -146,6 +166,37 @@ export function createActions(b: Backend): HealthActions {
     countSupply: (m, supply, refills) =>
       change([{ col: 'meds', id: m.id, data: { supply: Math.max(0, Math.min(10000, supply)), supplyAt: b.now(), ...(refills !== undefined ? { refills } : {}), updatedAt: b.now() }, merge: true }]),
     refillOrdered: (m) => change([{ col: 'meds', id: m.id, data: { refillOrderedAt: b.now(), updatedAt: b.now() }, merge: true }]),
+    saveVisit: (id, input, notes) => {
+      const d = b.read();
+      const existing = id ? d.visits.find((v) => v.id === id) : undefined;
+      const visitId = id ?? b.newId('visits');
+      const now = b.now();
+      // A carried-over mark stays as it was (who marked it); marking goes through markVisit.
+      const marks = existing?.status ? { status: existing.status, markedAt: existing.markedAt, markedBy: existing.markedBy } : {};
+      const ops: Op[] = [{ col: 'visits', id: visitId, data: visitDoc({ ...input, ...marks, ...(existing?.followUpDoneAt ? { followUpDoneAt: existing.followUpDoneAt } : {}) }, stampFor(existing, b.me, now), existing?.via) }];
+      if (notes !== undefined) {
+        const had = d.visitNotes.find((n) => n.id === visitId);
+        if (notes.trim()) ops.push({ col: 'visitNotes', id: visitId, data: visitNoteDoc(input.personId, notes, b.me, now) });
+        else if (had) ops.push({ col: 'visitNotes', id: visitId, data: null });
+      }
+      b.write(ops);
+      if (!existing) track('add visit', { kind: input.kind });
+      return visitId;
+    },
+    deleteVisit: (v) => {
+      const note = b.read().visitNotes.find((n) => n.id === v.id);
+      return change([...(note ? [{ col: 'visitNotes' as const, id: v.id, data: null }] : []), { col: 'visits', id: v.id, data: null }]);
+    },
+    markVisit: (v, status) => {
+      track(status === 'attended' ? 'visit attended' : status === 'missed' ? 'visit missed' : 'visit unmarked');
+      // A mark merges only its own fields; taking it back replaces the visit without them.
+      return change([
+        status
+          ? { col: 'visits', id: v.id, data: visitMark(status, b.me, b.now()), merge: true }
+          : { col: 'visits', id: v.id, data: visitUnmarked(v, b.now()) },
+      ]);
+    },
+    followUpDone: (v) => change([{ col: 'visits', id: v.id, data: { followUpDoneAt: b.now(), updatedAt: b.now() }, merge: true }]),
     saveContact: (id, input) => b.contacts.save(id, input),
     removeContact: (c) => b.contacts.remove(c),
     restoreContact: (c) => b.contacts.restore(c),

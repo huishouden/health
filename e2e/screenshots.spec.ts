@@ -12,6 +12,9 @@ test('today', ({ page }) => captureScreenshot(page, 'today', { fixedTime, prepar
 test('medicines', ({ page }) =>
   captureScreenshot(page, 'medicines', { path: './?tab=medicines&person=demo-person-ria', fixedTime, prepare: (p) => expect(p.getByText('6 tablets left')).toBeVisible() }));
 
+test('visits', ({ page }) =>
+  captureScreenshot(page, 'visits', { path: './?tab=visits', fixedTime, prepare: (p) => expect(p.getByRole('region', { name: 'Coming up' }).getByText('Diabetes check')).toBeVisible() }));
+
 test('history', ({ page }) =>
   captureScreenshot(page, 'history', { path: './?tab=history&person=demo-person-ria', fixedTime, prepare: (p) => expect(p.getByRole('region', { name: "Oma Ria's history" })).toBeVisible() }));
 
@@ -49,6 +52,11 @@ test('scan the label', async ({ page }) => {
 test('phone: today', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await captureScreenshot(page, 'phone-today', { fixedTime, prepare: needsDoing });
+});
+
+test('phone: visits', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await captureScreenshot(page, 'phone-visits', { path: './?tab=visits&person=demo-person-ria', fixedTime, prepare: (p) => expect(p.getByRole('region', { name: 'Coming up' }).getByText('Diabetes check')).toBeVisible() });
 });
 
 test('phone: medicines', async ({ page }) => {

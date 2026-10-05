@@ -3,6 +3,8 @@
 
 import { householdRole, type Role } from '@huishouden/pwa-kit/roles';
 import { cleanAudience } from '@huishouden/pwa-kit/audience';
+import { personAudience } from '@huishouden/pwa-kit/audience';
+import { visitRecipients as kitVisitRecipients } from '@huishouden/pwa-kit/visit';
 import { isYmd, toYmd } from '@huishouden/pwa-kit/time';
 import type { Person, PersonData } from './model';
 
@@ -50,10 +52,10 @@ export function admins(h: HouseholdLike): string[] {
 /**
  * Who may read what Health publishes about a person (agenda items, to-dos, reminders): the
  * household's admins, the person's carers and the person themself, when they are members and not
- * kids. Lowercase and sorted.
+ * kids. Lowercase and sorted. The kit's rule, shared with the household tools.
  */
 export function audienceOf(p: Pick<PersonData, 'readers'>, h: HouseholdLike): string[] {
-  return cleanAudience([...admins(h), ...p.readers.filter(notKid(h))]);
+  return personAudience(p, h);
 }
 
 /** Reminded at each dose time: the main carer, else the person themself, else the first admin. */
@@ -86,3 +88,20 @@ export function nameWithAge(p: Pick<Person, 'name' | 'birthDate'>, now: number):
 /** First name for short labels. */
 export const firstName = (p: Pick<Person, 'name'>) => p.name.trim().split(/\s+/)[0] ?? p.name;
 
+
+/** Adding a visit: everyone who reads the person (helper carers in their own name). */
+export const canAddVisit = canSee;
+
+/** Changing or removing a visit: the person's keepers, or the helper who added it. */
+export function canChangeVisit(v: { by: string }, p: Pick<PersonData, 'readers'>, role: Role | null, me: string): boolean {
+  return canEdit(p, role, me) || (canSee(p, role, me) && v.by === lower(me));
+}
+
+/** Marking a visit Attended or Missed, and answering its follow-up: everyone who reads the person. */
+export const canMarkVisit = canSee;
+
+/** A visit's notes (what the doctor said): only the person's keepers read and write them. */
+export const canKeepNotes = canEdit;
+
+/** Told before a visit: the person's carers, else the person themself, else an admin; never kids (the kit's rule). */
+export const visitRecipients = (p: Pick<PersonData, 'carers' | 'email'>, h: HouseholdLike): string[] => kitVisitRecipients(p, h);

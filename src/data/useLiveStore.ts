@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { PERSONAL_AGENDA, toAgendaItem } from '@huishouden/pwa-kit/agenda';
+import { toVisit, visitNoteDoc } from '@huishouden/pwa-kit/visit';
 import { commitOps } from '@huishouden/pwa-kit/firestore';
 import { householdContacts, watchContacts } from '@huishouden/pwa-kit/contacts';
 import { householdRole, isRestricted, type Role } from '@huishouden/pwa-kit/roles';
 import { readError } from '@huishouden/pwa-kit/feedback';
+import { reportError } from '@huishouden/pwa-kit/observability';
 import { watchProfiles } from '@huishouden/pwa-kit/household';
 import { DAY } from '@huishouden/pwa-kit/time';
 import { emptyData, type HealthData } from '../lib/demo';
-import type { Dose, Med, Person, PersonPhoto } from '../lib/model';
+import type { Dose, Med, Person, PersonPhoto, Visit, VisitNote } from '../lib/model';
+import { canKeepNotes } from '../lib/people';
+import { fromAssistantItem } from '../lib/visits';
 import { APP } from '../lib/publish';
 import { db } from './firebase';
 import { createActions, type Backend, type HealthStore, type Op } from './actions';
@@ -17,7 +22,7 @@ import { t } from '../i18n';
 /** How far back the dose history reads: a year, for the doctor's list and adherence. */
 const DOSE_HISTORY_DAYS = 400;
 
-type PersonParts = { meds?: Med[]; doses?: Dose[]; photo?: PersonPhoto | null };
+type PersonParts = { meds?: Med[]; doses?: Dose[]; visits?: Visit[]; visitNotes?: VisitNote[]; photo?: PersonPhoto | null };
 
 /**
  * Live household data from Firestore. Admins read everyone; members and helpers the people whose
@@ -55,6 +60,8 @@ export function useLiveStore(householdId: string, me: string, household: { membe
   }, [base, role, me]);
 
   const ids = (people ?? []).map((p) => p.id).join('|');
+  // The people whose visit notes this member keeps (the rules refuse anyone else's).
+  const keeps = (people ?? []).filter((p) => canKeepNotes(p, role, me)).map((p) => p.id).join('|');
   useEffect(() => {
     if (!ids) return;
     const unsubs: (() => void)[] = [];
@@ -73,6 +80,11 @@ export function useLiveStore(householdId: string, me: string, household: { membe
           (e) => (set(pid, { doses: [] }), fail(() => t('live.doses'))(e)),
         ),
         onSnapshot(
+          collection(db, under, 'visits'),
+          (s) => set(pid, { visits: s.docs.map((d) => toVisit(d.id, d.data(), pid)) }),
+          (e) => (set(pid, { visits: [] }), fail(() => t('live.visits'))(e)),
+        ),
+        onSnapshot(
           doc(db, under, 'photo', 'avatar'),
           (s) => set(pid, { photo: s.exists() ? ({ id: pid, ...(s.data() as Omit<PersonPhoto, 'id'>) }) : null }),
           () => set(pid, { photo: null }),
@@ -82,6 +94,19 @@ export function useLiveStore(householdId: string, me: string, household: { membe
     return () => unsubs.forEach((u) => u());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, ids]);
+
+  useEffect(() => {
+    if (!keeps) return;
+    const set = (pid: string, visitNotes: VisitNote[]) => setParts((all) => ({ ...all, [pid]: { ...all[pid], visitNotes } }));
+    const unsubs = keeps.split('|').map((pid) =>
+      onSnapshot(
+        collection(db, `${base}/healthPeople/${pid}`, 'visitNotes'),
+        (s) => set(pid, s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<VisitNote, 'id'>), personId: pid }))),
+        () => set(pid, []),
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [base, keeps]);
 
   useEffect(
     () => watchContacts(db, householdId, setContacts, { app: APP, restricted, backfillPositions: true, onError: fail(() => t('live.contacts')) }),
@@ -106,6 +131,8 @@ export function useLiveStore(householdId: string, me: string, household: { membe
       people: list,
       meds: list.flatMap((p) => of(p.id).meds ?? []),
       doses: list.flatMap((p) => of(p.id).doses ?? []),
+      visits: list.flatMap((p) => of(p.id).visits ?? []),
+      visitNotes: list.flatMap((p) => of(p.id).visitNotes ?? []),
       photos: list.flatMap((p) => (of(p.id).photo ? [of(p.id).photo!] : [])),
       contacts,
     };
@@ -113,7 +140,7 @@ export function useLiveStore(householdId: string, me: string, household: { membe
   const dataRef = useRef(data);
   dataRef.current = data;
 
-  const ready = people !== null && people.every((p) => parts[p.id]?.meds !== undefined && parts[p.id]?.doses !== undefined);
+  const ready = people !== null && people.every((p) => parts[p.id]?.meds !== undefined && parts[p.id]?.doses !== undefined && parts[p.id]?.visits !== undefined);
 
   const actions = useMemo(() => {
     const report = (p: Promise<unknown>) => void p.catch((e) => errorRef.current(readError(e, t('live.saveFailed'))));
@@ -137,6 +164,40 @@ export function useLiveStore(householdId: string, me: string, household: { membe
   }, [base, householdId, me]);
 
   useHealthSync(householdId, me, data, ready, household, role);
+  useAssistantVisits(base, me, ready, data, role);
 
   return { data, ready, actions, members: household.members, me, role, household, names };
+}
+
+/**
+ * The assistant's appointments from before Health had visits (`personalAgenda` items of app
+ * `assistant`, `appointment:<person>:<id>`) become visits under the same id, with their notes, and
+ * the old item goes; Health publishes the visit from then on. Once per open, on the device of a
+ * keeper of that person (only keepers may write the notes); a visit already there is left as it is.
+ */
+function useAssistantVisits(base: string, me: string, ready: boolean, data: HealthData, role: Role | null) {
+  const done = useRef(false);
+  const latest = useRef(data);
+  latest.current = data;
+  useEffect(() => {
+    if (!ready || done.current || (role !== 'admin' && role !== 'member')) return;
+    done.current = true;
+    void (async () => {
+      const snap = await getDocs(query(collection(db, base, PERSONAL_AGENDA), where('app', '==', 'assistant'), where('audience', 'array-contains', me)));
+      const d = latest.current;
+      const ops: { col: string; id: string; data: Record<string, unknown> | null }[] = [];
+      for (const doc of snap.docs) {
+        const moved = fromAssistantItem(toAgendaItem(doc.id, doc.data()), me);
+        const person = moved && d.people.find((p) => p.id === moved.visit.personId);
+        if (!moved || !person || !canKeepNotes(person, role, me)) continue;
+        if (!d.visits.some((v) => v.id === moved.visit.id)) {
+          const { id, ...visit } = moved.visit;
+          ops.push({ col: `healthPeople/${person.id}/visits`, id, data: visit as unknown as Record<string, unknown> });
+          if (moved.notes) ops.push({ col: `healthPeople/${person.id}/visitNotes`, id, data: { ...visitNoteDoc(person.id, moved.notes, me, Date.now()), via: 'assistant' } });
+        }
+        ops.push({ col: PERSONAL_AGENDA, id: doc.id, data: null });
+      }
+      if (ops.length) await commitOps(db, base, ops);
+    })().catch((e) => reportError(e, { where: 'move assistant visits' }));
+  }, [base, me, ready, role]);
 }

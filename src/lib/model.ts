@@ -5,6 +5,10 @@
 
 import type { EventRule } from '@huishouden/pwa-kit/schedule';
 
+// Visits (appointments) are the kit's model, shared with the assistant connector: `healthPeople/{id}/visits`
+// and their notes, for admins and member carers only, in `visitNotes` (`@huishouden/pwa-kit/visit`).
+export type { FollowUp, Visit, VisitData, VisitInput, VisitKind, VisitNote, VisitNoteData, VisitStatus } from '@huishouden/pwa-kit/visit';
+
 /** healthPeople/{personId}: someone the household gives medicine to, with or without an account. */
 export interface PersonData {
   name: string;

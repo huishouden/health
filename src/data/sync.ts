@@ -22,8 +22,8 @@ const REFRESH_MS = 30 * 60_000;
  */
 export function useHealthSync(householdId: string, me: string, data: HealthData, ready: boolean, household: { members: string[]; roles?: Record<string, Role> }, role: Role | null) {
   useEffect(() => {
-    setSensitiveWords(APP, sensitiveWords(data.people, data.meds));
-  }, [data.people, data.meds]);
+    setSensitiveWords(APP, sensitiveWords(data.people, data.meds, data.visits));
+  }, [data.people, data.meds, data.visits]);
 
   const latest = useRef({ data, household });
   latest.current = { data, household };
@@ -33,7 +33,7 @@ export function useHealthSync(householdId: string, me: string, data: HealthData,
     let cancelled = false;
     const run = async () => {
       const { data: d, household: h } = latest.current;
-      const input = { people: d.people, meds: d.meds, doses: d.doses, household: h, now: Date.now(), url: (path: string) => appUrl(import.meta.env.BASE_URL, path) };
+      const input = { people: d.people, meds: d.meds, doses: d.doses, visits: d.visits, contacts: d.contacts, household: h, now: Date.now(), url: (path: string) => appUrl(import.meta.env.BASE_URL, path) };
       try {
         // Every language's words, so each reader sees the agenda, to-dos and notifications in their own.
         await syncPersonalAgenda(db, householdId, APP, await localizeAgenda(() => agendaItems(input)), { by: me });

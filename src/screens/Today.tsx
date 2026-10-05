@@ -10,6 +10,9 @@ import type { HealthStore } from '../data/actions';
 import { Avatar } from '../components/Avatar';
 import { t as tr, useT } from '../i18n';
 import { formatList } from '@huishouden/pwa-kit/i18n';
+import { visitTitle, visitWhen } from '@huishouden/pwa-kit/visit';
+import { CalendarClock } from 'lucide-react';
+import { nextVisit } from '../lib/visits';
 
 export interface TodayProps {
   store: HealthStore;
@@ -19,6 +22,8 @@ export interface TodayProps {
   onOther: (row: { med: Med; slot?: string; slotAt?: number }) => void;
   onUnmark: (dose: Dose) => void;
   onShowMeds: (personId: string) => void;
+  /** Opens the person's visits, at this one. */
+  onShowVisit: (personId: string, visitId: string) => void;
   empty: React.ReactNode;
 }
 
@@ -46,7 +51,7 @@ function laterText(rows: Row[]): string {
   return [...byMed.values()].map((e) => tr('today.medAt', { med: e.label, times: formatList(e.times), one: /^1(?!\d)/.test(e.times[0]) ? 'yes' : 'no' })).join('; ');
 }
 
-export function Today({ store, people, nameOf, onMark, onOther, onUnmark, onShowMeds, empty }: TodayProps) {
+export function Today({ store, people, nameOf, onMark, onOther, onUnmark, onShowMeds, onShowVisit, empty }: TodayProps) {
   const t = useT();
   const { now } = useClock();
   const { data, role, me } = store;
@@ -105,14 +110,14 @@ export function Today({ store, people, nameOf, onMark, onOther, onUnmark, onShow
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:items-start">
         {people.map((p) => (
-          <PersonDay key={p.id} person={p} people={people} store={store} rows={rowsOf(p)} nameOf={nameOf} onMark={onMark} onUnmark={onUnmark} onShowMeds={onShowMeds} />
+          <PersonDay key={p.id} person={p} people={people} store={store} rows={rowsOf(p)} nameOf={nameOf} onMark={onMark} onUnmark={onUnmark} onShowMeds={onShowMeds} onShowVisit={onShowVisit} />
         ))}
       </div>
     </div>
   );
 }
 
-function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onShowMeds }: {
+function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onShowMeds, onShowVisit }: {
   person: Person;
   people: Person[];
   store: HealthStore;
@@ -121,6 +126,7 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
   onMark: TodayProps['onMark'];
   onUnmark: TodayProps['onUnmark'];
   onShowMeds: (personId: string) => void;
+  onShowVisit: TodayProps['onShowVisit'];
 }) {
   const t = useT();
   const { now } = useClock();
@@ -156,6 +162,7 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
     );
   };
   const later = rows.filter((r) => r.state === 'upcoming');
+  const visit = nextVisit(data.visits, person.id, now);
   const low = meds.filter((m) => refillDue(m, data.doses, now));
 
   return (
@@ -168,6 +175,16 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
         </button>
       </div>
       {meds.length === 0 && <p className="mt-2 text-base text-muted">{t('today.noMeds')}</p>}
+      {visit && (
+        <button
+          type="button"
+          className="-mx-2 mt-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-xl px-2 text-left text-base text-ink-soft hover:bg-sunken"
+          onClick={() => onShowVisit(person.id, visit.id)}
+        >
+          <CalendarClock size={18} className="shrink-0 text-link" aria-hidden="true" />
+          <span className="min-w-0 flex-1">{t('today.nextVisit', { when: visitWhen(visit, now), title: visitTitle(visit) })}</span>
+        </button>
+      )}
       {person.allergies && <p className="mt-2 text-sm text-muted">{t('today.allergies', { allergies: person.allergies })}</p>}
       {done.length > 0 &&
         (open.length > 0 ? (
