@@ -1,7 +1,7 @@
-import { Check, Clock, SkipForward } from 'lucide-react';
+import { Clock, SkipForward } from 'lucide-react';
 import { asNeededCheck } from '@huishouden/pwa-kit/dose';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
-import { cardClass, ghostButton, overline, primaryButton, secondaryButton } from '@huishouden/pwa-kit/react/ui';
+import { canUndoDone, cardClass, CompleteButton, completeButton, CompletionList, CompletionRow, ghostButton, overline } from '@huishouden/pwa-kit/react/ui';
 import { agoWords, atClock, clockWords, formatTime, toHhmm, toYmd } from '@huishouden/pwa-kit/time';
 import type { Dose, Med, Person } from '../lib/model';
 import { dayRows, doseText, isCurrent, logsOf, medLabel, nextDose, refillDue, type Row } from '../lib/meds';
@@ -72,34 +72,30 @@ export function Today({ store, people, nameOf, onMark, onOther, onUnmark, onShow
               ` ${t(toYmd(next.row.slot.at) !== today ? 'today.nextTomorrow' : 'today.next', { name: next.person.name, at: atClock(next.row.slot.time) })}`}
           </p>
         ) : (
-          <ul className="mt-3 divide-y divide-line">
-            {needs.map(({ person, row }) => {
-              const may = canGive(person, role, me);
+          <ul className="mt-2 divide-y divide-line">
+            {needs.filter(({ person }) => canGive(person, role, me)).map(({ person, row }) => {
               const target = { med: row.med, slot: row.slot.key, slotAt: row.slot.at };
+              const med = medLabel(row.med);
               return (
-                <li key={`${row.med.id}-${row.slot.key}`} className="flex flex-wrap items-center gap-3 py-3">
+                <li key={`${row.med.id}-${row.slot.key}`} data-completion="open" className="flex flex-wrap items-center gap-3 py-3">
                   <Avatar person={person} people={people} size={40} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-medium text-ink">
-                      {medLabel(row.med)} <span className="font-normal text-muted">{t('today.forName', { name: person.name })}</span>
+                    <p className="text-lg leading-snug font-semibold text-ink">
+                      {med} <span className="font-normal text-muted">{t('today.forName', { name: person.name })}</span>
                     </p>
-                    <p className={`text-sm ${row.state === 'missed' ? 'font-medium text-attention' : 'text-muted'}`}>
+                    <p className={`text-base ${row.state === 'missed' ? 'font-semibold text-attention' : 'text-muted'}`}>
                       {[whenText(row, now), doseText(row.med)].filter(Boolean).join(' · ')}
                     </p>
                   </div>
-                  {may && (
-                    <div className="flex gap-1.5">
-                      <button type="button" className={primaryButton} aria-label={t('toast.givenFor', { med: medLabel(row.med), name: person.name })} onClick={() => onMark(target, 'given')}>
-                        <Check size={18} /> {t('dose.given')}
-                      </button>
-                      <button type="button" className={secondaryButton} aria-label={t('today.skipFor', { med: medLabel(row.med), name: person.name })} onClick={() => onMark(target, 'skipped')}>
-                        <SkipForward size={18} /> {t('today.skip')}
-                      </button>
-                      <button type="button" className={ghostButton} aria-label={t('today.anotherTimeFor', { med: medLabel(row.med), name: person.name })} onClick={() => onOther(target)}>
-                        <Clock size={18} /> {t('today.late')}
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex w-full items-center justify-end gap-1 sm:w-auto">
+                    <button type="button" className={ghostButton} aria-label={t('today.skipFor', { med, name: person.name })} onClick={() => onMark(target, 'skipped')}>
+                      <SkipForward size={18} aria-hidden="true" /> {t('today.skip')}
+                    </button>
+                    <button type="button" className={ghostButton} aria-label={t('today.anotherTimeFor', { med, name: person.name })} onClick={() => onOther(target)}>
+                      <Clock size={18} aria-hidden="true" /> {t('today.late')}
+                    </button>
+                    <CompleteButton done={false} name={med} verb={t('today.give')} label={t('today.giveTo', { med, name: person.name })} onDone={() => onMark(target, 'given')} />
+                  </div>
                 </li>
               );
             })}
@@ -134,6 +130,31 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
   const meds = data.meds.filter((m) => m.personId === person.id && isCurrent(m, today));
   const asNeeded = meds.filter((m) => m.asNeeded);
   const done = rows.filter((r) => r.log);
+  const open = rows.filter((r) => r.state === 'due' || r.state === 'missed');
+  const doneRow = (r: Row) => {
+    const d = r.log!;
+    const med = medLabel(r.med);
+    const skipped = d.status === 'skipped';
+    const next = rows.find((x) => x.med.id === r.med.id && x.slot.at > r.slot.at)?.slot.at;
+    const undo = may && canUndoDone(d.createdAt ?? d.at, now, { until: next });
+    return (
+      <CompletionRow
+        key={`${r.med.id}-${r.slot.key}`}
+        done
+        skipped={skipped}
+        name={med}
+        title={
+          <>
+            {med} <span className="font-normal">{clockWords(r.slot.time)}</span>
+          </>
+        }
+        status={markedText(d, r.slot.at, nameOf)}
+        onDone={() => {}}
+        onUndo={undo ? () => onUnmark(d) : undefined}
+        undoLabel={t(skipped ? 'today.undoSkipped' : 'today.undoGiven', { med, at: atClock(r.slot.time) })}
+      />
+    );
+  };
   const later = rows.filter((r) => r.state === 'upcoming');
   const low = meds.filter((m) => refillDue(m, data.doses, now));
 
@@ -148,26 +169,17 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
       </div>
       {meds.length === 0 && <p className="mt-2 text-base text-muted">{t('today.noMeds')}</p>}
       {person.allergies && <p className="mt-2 text-sm text-muted">{t('today.allergies', { allergies: person.allergies })}</p>}
-      {done.length > 0 && (
-        <>
-          <h3 className={`${overline} mt-4`}>{t('today.doneToday')}</h3>
-          <ul className="mt-1 space-y-1">
-            {done.map((r) => (
-              <li key={`${r.med.id}-${r.slot.key}`} className="flex items-center gap-2 text-base text-ink-soft">
-                <Check size={16} className={r.state === 'given' ? 'text-positive' : 'text-muted'} aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  {medLabel(r.med)} <span className="text-sm text-muted">{clockWords(r.slot.time)} · {markedText(r.log!, r.slot.at, nameOf)}</span>
-                </span>
-                {may && (
-                  <button type="button" className="min-h-11 rounded-xl px-2 text-sm text-muted hover:bg-sunken" aria-label={t('today.undoName', { med: medLabel(r.med), at: atClock(r.slot.time) })} onClick={() => onUnmark(r.log!)}>
-                    {t('common.undo')}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      {done.length > 0 &&
+        (open.length > 0 ? (
+          <>
+            <h3 className={`${overline} mt-4`}>{t('today.doneToday')}</h3>
+            <ul className="mt-1 divide-y divide-line">{done.map(doneRow)}</ul>
+          </>
+        ) : (
+          <CompletionList className="mt-3" items={done} isDone={() => true} label={t('today.doneToday')} allDone={t('today.allDoneSoFar')}>
+            {doneRow}
+          </CompletionList>
+        ))}
       {later.length > 0 && (
         <p className="mt-3 text-base text-ink-soft">
           <span className="text-muted">{t('today.laterToday')} </span>
@@ -192,7 +204,7 @@ function PersonDay({ person, people, store, rows, nameOf, onMark, onUnmark, onSh
                     </p>
                   </div>
                   {may && (
-                    <button type="button" className={secondaryButton} aria-label={t('today.giveTo', { med: medLabel(m), name: person.name })} onClick={() => onMark({ med: m }, 'given')}>
+                    <button type="button" className={completeButton} aria-label={t('today.giveTo', { med: medLabel(m), name: person.name })} onClick={() => onMark({ med: m }, 'given')}>
                       {t('today.give')}
                     </button>
                   )}

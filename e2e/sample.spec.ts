@@ -19,13 +19,35 @@ test('marking a dose given moves it to done with who and when, and Undo puts it 
   await open(page);
   await expect(needs(page)).toContainText('Metformin 500 mg');
   await expect(needs(page)).toContainText('8 AM · not marked');
-  await needs(page).getByRole('button', { name: 'Given: Metformin 500 mg for Oma Ria' }).click();
+  const give = needs(page).getByRole('button', { name: 'Give Metformin 500 mg to Oma Ria' });
+  await expect(give).toHaveText('Give');
+  await expect(give).not.toHaveAttribute('aria-pressed');
+  const ria = page.getByRole('region', { name: 'Oma Ria today' });
+  const undo = ria.getByRole('button', { name: 'Undo given for Metformin 500 mg at 8 AM' });
+  await expect(undo).toHaveCount(0);
+  await give.click();
+  await ria.getByRole('button', { name: /All done so far today/ }).click();
   await expect(page.getByText('Given: Metformin 500 mg for Oma Ria')).toBeVisible();
   await expect(needs(page)).toContainText('Nothing due right now. Next: Noor at 2 PM.');
-  const ria = page.getByRole('region', { name: 'Oma Ria today' });
-  await expect(ria).toContainText(/Metformin 500 mg 8 AM · Given late 10:3\d AM by You/);
-  await page.getByRole('button', { name: 'Undo', exact: true }).last().click();
-  await expect(needs(page)).toContainText('Metformin 500 mg');
+  // Done looks done: no Give for it anywhere, a check badge, who and when, and a quiet Undo.
+  await expect(page.getByRole('button', { name: 'Give Metformin 500 mg to Oma Ria' })).toHaveCount(0);
+  const row = ria.locator('li[data-completion=done]', { hasText: 'Metformin 500 mg' });
+  await expect(row).toContainText(/Given late 10:3\d AM by You/);
+  await expect(row.locator('[data-done-badge=done]')).toBeVisible();
+  await expect(undo).toHaveText('Undo');
+  await expect(undo).not.toHaveAttribute('aria-pressed');
+  await undo.click();
+  await expect(needs(page).getByRole('button', { name: 'Give Metformin 500 mg to Oma Ria' })).toBeVisible();
+});
+
+test('a person whose doses are all done folds to one line that opens again', async ({ page }) => {
+  await open(page);
+  const alex = page.getByRole('region', { name: 'Alex today' });
+  const summary = alex.getByRole('button', { name: /All done so far today/ });
+  await expect(summary).toHaveAttribute('aria-expanded', 'false');
+  await expect(alex.locator('li[data-completion]')).toHaveCount(0);
+  await summary.click();
+  await expect(alex.locator('li[data-completion=done]')).toContainText('Given 7:13 AM by Alex');
 });
 
 test('a second dose too soon asks first, naming who gave the first and when', async ({ page }) => {
@@ -45,7 +67,16 @@ test('Late marks a dose at another time; Skip records a skip', async ({ page }) 
   const dialog = page.getByRole('dialog', { name: 'Metformin 500 mg for Oma Ria' });
   await dialog.getByLabel('Given at').fill('2031-05-14T08:15');
   await dialog.getByRole('button', { name: 'Mark given' }).click();
-  await expect(page.getByRole('region', { name: 'Oma Ria today' })).toContainText('Metformin 500 mg 8 AM · Given 8:15 AM by You');
+  const ria = page.getByRole('region', { name: 'Oma Ria today' });
+  await ria.getByRole('button', { name: /All done so far today/ }).click();
+  await expect(ria.locator('li[data-completion=done]', { hasText: 'Metformin 500 mg' })).toContainText('Given 8:15 AM by You');
+  await page.clock.fastForward('03:40:00');
+  await needs(page).getByRole('button', { name: 'Skip: Amoxicillin 250 mg/5 ml for Noor' }).click();
+  const noor = page.getByRole('region', { name: 'Noor today' });
+  await noor.getByRole('button', { name: /All done so far today/ }).click();
+  const skipped = noor.locator('li[data-completion=skipped]');
+  await expect(skipped).toContainText(/Skipped 2:1\d PM by You/);
+  await expect(skipped.getByRole('button', { name: 'Undo skip for Amoxicillin 250 mg/5 ml at 2 PM' })).toBeVisible();
 });
 
 test('Scan the label shows what it filled, and what it read but did not use', async ({ page }) => {
@@ -156,7 +187,7 @@ test('a helper sees only the people they look after and cannot change medicines'
   await expect(page.getByRole('button', { name: 'Add medicine' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Edit / })).toHaveCount(0);
   await page.getByRole('button', { name: 'Today', exact: true }).click();
-  await expect(needs(page).getByRole('button', { name: 'Given: Metformin 500 mg for Oma Ria' })).toBeVisible();
+  await expect(needs(page).getByRole('button', { name: 'Give Metformin 500 mg to Oma Ria' })).toBeVisible();
 });
 
 test('a kid sees no medicines', async ({ page }) => {
