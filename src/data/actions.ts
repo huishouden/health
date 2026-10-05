@@ -188,9 +188,9 @@ export function createActions(b: Backend): HealthActions {
       return change([...(note ? [{ col: 'visitNotes' as const, id: v.id, data: null }] : []), { col: 'visits', id: v.id, data: null }]);
     },
     markVisit: (v, status) => {
-      const { id: _id, status: _s, markedAt: _a, markedBy: _b, ...rest } = v;
       track(status === 'attended' ? 'visit attended' : status === 'missed' ? 'visit missed' : 'visit unmarked');
-      return change([{ col: 'visits', id: v.id, data: { ...rest, ...visitMark(status, b.me, b.now()) } }]);
+      // The whole document, replaced: taking a mark back removes its fields.
+      return change([{ col: 'visits', id: v.id, data: visitMark(withoutId(v), status, b.me, b.now()) }]);
     },
     followUpDone: (v) => change([{ col: 'visits', id: v.id, data: { ...withoutId(v), followUpDoneAt: b.now(), updatedAt: b.now() } }]),
     saveContact: (id, input) => b.contacts.save(id, input),

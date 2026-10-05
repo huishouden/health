@@ -25,7 +25,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#e0a18367bc1960600dacb0881818c3903de2e421",
+    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#3afbbb0723ae7cc07e0aceb1b800f78ecff9fc6d",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/bun": "^1.4.2",
