@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { DEMO_HELPER, DEMO_MEMBERS, DEMO_NOW, demoData } from './demo';
-import { agendaItems, reminderItems, sensitiveWords, todoItems, type PublishInput } from './publish';
+import { agendaItems, refillSource, reminderItems, sensitiveWords, todoItems, type PublishInput } from './publish';
 import { todoOpsAllowed } from '@huishouden/pwa-kit/todos';
 import { readSource, sourceAllowed, sourceReads, stillDue } from '@huishouden/pwa-kit/reminder-source';
 import { personalReminderDoc } from '@huishouden/pwa-kit/reminders';
@@ -141,8 +141,10 @@ describe('the sender drops a reminder once it is done elsewhere', () => {
     expect(stillDue(source, new Map([[check.doc, { ...med }]]))).toBe(true);
     expect(stillDue(source, new Map([[check.doc, { ...med, refillOrderedAt: DEMO_NOW }]]))).toBe(false);
     // The to-do's Ordered writes the medicine the source reads; only the person's readers may use it.
-    const todo = todoItems(input).find((t) => t.ref === 'refill:demo-person-ria:demo-med-metformin');
-    if (todo) expect(todo.done!.ops.map((o) => `${o.col}/${o.id}`)).toEqual([check.doc]);
+    // Lisinopril is low already, so its refill to-do is up: its Ordered writes what its refill source reads.
+    const lisinopril = data.meds.find((m) => m.id === 'demo-med-lisinopril')!;
+    const todo = todoItems(input).find((t) => t.ref === 'refill:demo-person-ria:demo-med-lisinopril')!;
+    expect(todo.done!.ops.map((o) => `${o.col}/${o.id}`)).toEqual([refillSource('demo-person-ria', lisinopril).checks[0].doc]);
     expect(check.doc).toBe('healthPeople/demo-person-ria/meds/demo-med-metformin');
     const person = data.people.find((p) => p.id === 'demo-person-ria')!;
     const read = new Map<string, Record<string, unknown> | null>([['healthPeople/demo-person-ria', { readers: person.readers }]]);
