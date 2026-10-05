@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.1](https://github.com/huishouden/health/compare/v1.10.0...v1.10.1) (2026-10-05)
+
+### Other
+
+* Maintenance
+
 ## 1.10.0 (2026-10-05)
 
 ### Features
