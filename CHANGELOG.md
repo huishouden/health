@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/huishouden/health/compare/v1.5.1...v1.6.0) (2026-10-05)
+
+
+### Features
+
+* **contacts:** contacts saved before positions get one in the background (kit 0.88.0) ([#28](https://github.com/huishouden/health/issues/28)) ([538e109](https://github.com/huishouden/health/commit/538e1098279772ab63a364c77790dafeb22204de))
+
+
+### Bug Fixes
+
+* **todos:** the portal's to-do button says what it does, "Mark done" not "Done" ([#30](https://github.com/huishouden/health/issues/30)) ([638c312](https://github.com/huishouden/health/commit/638c312159078e2ccb0a60bc011e39e861e38cdb))
+
 ## [1.5.1](https://github.com/huishouden/health/compare/v1.5.0...v1.5.1) (2026-10-05)
 
 
