@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.9.0](https://github.com/huishouden/health/compare/v1.8.0...v1.9.0) (2026-10-05)
+
+### Features
+
+* hashed assets from the suite's asset CDN (pwa-kit 0.100.0) ([120774f](https://github.com/huishouden/health/commit/120774f797e109613281985c51dd882aa8689181))
+
 ## [1.8.0](https://github.com/huishouden/health/compare/v1.7.1...v1.8.0) (2026-10-05)
 
 ### Features
