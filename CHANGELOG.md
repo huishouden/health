@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/huishouden/health/compare/v1.4.1...v1.5.0) (2026-10-04)
+
+
+### Features
+
+* **contacts:** the pharmacy's distance from home beside each medicine; kit 0.84.0 ([#22](https://github.com/huishouden/health/issues/22)) ([118f114](https://github.com/huishouden/health/commit/118f11404fff7ac1df367841122199365d69ade8))
+
 ## [1.4.1](https://github.com/huishouden/health/compare/v1.4.0...v1.4.1) (2026-10-04)
 
 
