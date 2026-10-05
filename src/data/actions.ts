@@ -2,7 +2,7 @@ import type { Contact, ContactInput, ContactWrites } from '@huishouden/pwa-kit/c
 import { changes, stampFor, withoutId, type Backend as KitBackend, type Op as KitOp, type Undo } from '@huishouden/pwa-kit/store';
 import { track } from '@huishouden/pwa-kit/observability';
 import type { Role } from '@huishouden/pwa-kit/roles';
-import { visitDoc, visitMark, visitNoteDoc } from '@huishouden/pwa-kit/visit';
+import { visitDoc, visitMark, visitNoteDoc, visitUnmarked } from '@huishouden/pwa-kit/visit';
 import { doseDoc, medDoc, personDoc, type MedInput, type PersonInput } from '../lib/build';
 import type { HealthData } from '../lib/demo';
 import type { Dose, DoseStatus, Med, Person, PersonPhoto, Visit, VisitInput, VisitNote, VisitStatus } from '../lib/model';
@@ -189,8 +189,12 @@ export function createActions(b: Backend): HealthActions {
     },
     markVisit: (v, status) => {
       track(status === 'attended' ? 'visit attended' : status === 'missed' ? 'visit missed' : 'visit unmarked');
-      // The whole document, replaced: taking a mark back removes its fields.
-      return change([{ col: 'visits', id: v.id, data: visitMark(withoutId(v), status, b.me, b.now()) }]);
+      // A mark merges only its own fields; taking it back replaces the visit without them.
+      return change([
+        status
+          ? { col: 'visits', id: v.id, data: visitMark(status, b.me, b.now()), merge: true }
+          : { col: 'visits', id: v.id, data: visitUnmarked(v, b.now()) },
+      ]);
     },
     followUpDone: (v) => change([{ col: 'visits', id: v.id, data: { ...withoutId(v), followUpDoneAt: b.now(), updatedAt: b.now() } }]),
     saveContact: (id, input) => b.contacts.save(id, input),
