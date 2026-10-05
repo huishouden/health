@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { PERSONAL_AGENDA, toAgendaItem } from '@huishouden/pwa-kit/agenda';
 import { toVisit, visitNoteDoc } from '@huishouden/pwa-kit/visit';
+import { CONDITIONS, toCondition } from '@huishouden/pwa-kit/condition';
 import { commitOps } from '@huishouden/pwa-kit/firestore';
 import { householdContacts, watchContacts } from '@huishouden/pwa-kit/contacts';
 import { householdRole, isRestricted, type Role } from '@huishouden/pwa-kit/roles';
@@ -10,8 +11,8 @@ import { reportError } from '@huishouden/pwa-kit/observability';
 import { watchProfiles } from '@huishouden/pwa-kit/household';
 import { DAY } from '@huishouden/pwa-kit/time';
 import { emptyData, type HealthData } from '../lib/demo';
-import type { Dose, Med, Person, PersonPhoto, Visit, VisitNote } from '../lib/model';
-import { canKeepNotes } from '../lib/people';
+import type { Condition, Dose, Med, Person, PersonPhoto, Visit, VisitNote } from '../lib/model';
+import { canKeepNotes, canReadConditions } from '../lib/people';
 import { fromAssistantItem } from '../lib/visits';
 import { APP } from '../lib/publish';
 import { db } from './firebase';
@@ -22,7 +23,7 @@ import { t } from '../i18n';
 /** How far back the dose history reads: a year, for the doctor's list and adherence. */
 const DOSE_HISTORY_DAYS = 400;
 
-type PersonParts = { meds?: Med[]; doses?: Dose[]; visits?: Visit[]; visitNotes?: VisitNote[]; photo?: PersonPhoto | null };
+type PersonParts = { meds?: Med[]; doses?: Dose[]; visits?: Visit[]; visitNotes?: VisitNote[]; conditions?: Condition[]; photo?: PersonPhoto | null };
 
 /**
  * Live household data from Firestore. Admins read everyone; members and helpers the people whose
@@ -108,6 +109,22 @@ export function useLiveStore(householdId: string, me: string, household: { membe
     return () => unsubs.forEach((u) => u());
   }, [base, keeps]);
 
+  // The people whose conditions this member reads (admins, member carers, themself): the rules refuse anyone else's.
+  const diagnoses = (people ?? []).filter((p) => canReadConditions(p, role, me)).map((p) => p.id).join('|');
+  useEffect(() => {
+    if (!diagnoses) return;
+    const set = (pid: string, conditions: Condition[]) => setParts((all) => ({ ...all, [pid]: { ...all[pid], conditions } }));
+    const unsubs = diagnoses.split('|').map((pid) =>
+      onSnapshot(
+        collection(db, `${base}/healthPeople/${pid}`, CONDITIONS),
+        (s) => set(pid, s.docs.map((d) => toCondition(d.id, d.data(), pid))),
+        (e) => (set(pid, []), fail(() => t('live.conditions'))(e)),
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, diagnoses]);
+
   useEffect(
     () => watchContacts(db, householdId, setContacts, { app: APP, restricted, backfillPositions: true, onError: fail(() => t('live.contacts')) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -133,6 +150,7 @@ export function useLiveStore(householdId: string, me: string, household: { membe
       doses: list.flatMap((p) => of(p.id).doses ?? []),
       visits: list.flatMap((p) => of(p.id).visits ?? []),
       visitNotes: list.flatMap((p) => of(p.id).visitNotes ?? []),
+      conditions: list.flatMap((p) => of(p.id).conditions ?? []),
       photos: list.flatMap((p) => (of(p.id).photo ? [of(p.id).photo!] : [])),
       contacts,
     };

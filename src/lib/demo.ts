@@ -1,7 +1,7 @@
 import type { Contact } from '@huishouden/pwa-kit/contacts';
 import type { HouseholdHome } from '@huishouden/pwa-kit/home';
 import { addDays, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
-import type { Dose, Med, Person, PersonPhoto, Visit, VisitNote } from './model';
+import type { Condition, Dose, Med, Person, PersonPhoto, Visit, VisitNote } from './model';
 import { doseId, rowsBetween } from './meds';
 import { readersOf } from './people';
 
@@ -33,11 +33,13 @@ export interface HealthData {
   visits: Visit[];
   /** The visits' notes: only those of people the reader keeps (admins and member carers). */
   visitNotes: VisitNote[];
+  /** Each person's conditions: only those of people the reader may read them for (admins, member carers, the person). */
+  conditions: Condition[];
   /** The household's contacts shown in Health (doctors, pharmacies). */
   contacts: Contact[];
 }
 
-export const emptyData = (): HealthData => ({ people: [], photos: [], meds: [], doses: [], visits: [], visitNotes: [], contacts: [] });
+export const emptyData = (): HealthData => ({ people: [], photos: [], meds: [], doses: [], visits: [], visitNotes: [], conditions: [], contacts: [] });
 
 const TODAY = toYmd(DEMO_NOW);
 const day = (offset: number) => addDays(TODAY, offset);
@@ -54,6 +56,8 @@ const GP = 'demo-contact-gp';
 const PEDS = 'demo-contact-pediatrician';
 const PHARMACY = 'demo-contact-pharmacy';
 const EYES = 'demo-contact-eyes';
+const HEART = 'demo-contact-heart';
+const NEURO = 'demo-contact-neuro';
 
 function person(id: string, order: number, data: Omit<Person, 'id' | 'readers' | 'createdAt' | 'by'>): Person {
   return { id, ...data, readers: readersOf(data), createdAt: CREATED + order * 60_000, by: SAM };
@@ -129,6 +133,8 @@ function contacts(): Contact[] {
     c(PEDS, 'Dr. Omar Velde', 'Pediatrician', '(555) 010-4410'),
     c(PHARMACY, 'CVS Pharmacy', 'Pharmacy', '(555) 010-7788', { website: 'https://www.cvs.com', address: '400 Example Avenue, Springfield', lat: 39.7817, lng: -89.6066 }),
     c(EYES, 'Example Eye Clinic', 'Specialist', '(555) 010-3090', { address: '8 Example Road, Springfield', lat: 39.8102, lng: -89.6431 }),
+    c(HEART, 'Example Heart Center', 'Specialist', '(555) 010-6120', { address: '30 Example Street, Springfield', lat: 39.8011, lng: -89.6489 }),
+    c(NEURO, 'Dr. Ines Mol', 'Specialist', '(555) 010-5274', { address: '5 Example Court, Springfield', lat: 39.7741, lng: -89.6702 }),
   ];
 }
 
@@ -143,12 +149,34 @@ function visits(): Visit[] {
     id: `demo-visit-${id}`, personId, remindBefore: [1440, 120], createdAt: CREATED, by: SAM, ...data,
   });
   return [
-    v('diabetes', RIA, { kind: 'checkup', title: 'Diabetes check', at: at(2, '09:15'), minutes: 30, contactId: GP, prep: ['Fasting from midnight'], medList: true, followUp: { every: 3, unit: 'month' } }),
-    v('eyes', RIA, { kind: 'eye', title: 'Eye exam', at: at(13, '14:00'), contactId: EYES, prep: ['Bring her glasses', 'Someone else drives home (eye drops)'], remindBefore: [2880, 120] }),
+    v('diabetes', RIA, { kind: 'checkup', title: 'Diabetes check', at: at(2, '09:15'), minutes: 30, contactId: GP, prep: ['Fasting from midnight'], medList: true, followUp: { every: 3, unit: 'month' }, conditionId: 'demo-condition-diabetes', specialty: 'endocrinology' }),
+    v('eyes', RIA, { kind: 'eye', title: 'Eye exam', at: at(13, '14:00'), contactId: EYES, prep: ['Bring her glasses', 'Someone else drives home (eye drops)'], remindBefore: [2880, 120], conditionId: 'demo-condition-cataract', specialty: 'ophthalmology' }),
     v('vaccine', NOOR, { kind: 'vaccine', title: 'School vaccine', at: at(-1, '15:30'), minutes: 20, contactId: PEDS, by: ALEX }),
     v('physio', ALEX_P, { kind: 'therapy', title: 'Physio for the shoulder', at: at(6, '17:00'), minutes: 45, link: 'https://video.example.com/room/physio', remindBefore: [60], by: ALEX }),
-    v('cardio', RIA, { kind: 'specialist', title: 'Cardiology', at: at(-21, '11:00'), location: 'Example Heart Center, 30 Example Street', followUp: { every: 1, unit: 'month' }, status: 'attended', markedAt: at(-21, '12:30'), markedBy: DEMO_HELPER }),
+    v('cardio', RIA, { kind: 'specialist', title: 'Cardiology', at: at(-21, '11:00'), location: 'Example Heart Center, 30 Example Street', conditionId: 'demo-condition-bp', specialty: 'cardiology', followUp: { every: 1, unit: 'month' }, status: 'attended', markedAt: at(-21, '12:30'), markedBy: DEMO_HELPER }),
     v('dentist', NOOR, { kind: 'dentist', title: 'Check-up', at: at(-60, '10:00'), status: 'attended', markedAt: at(-60, '11:00'), markedBy: SAM }),
+  ];
+}
+
+/**
+ * Conditions, by medical area: Oma Ria's type 2 diabetes, blood pressure, high cholesterol, knee
+ * arthritis and a cataract (each with the medicines that treat it and the visits about it); Noor's
+ * hay fever and an ear infection that is over; Alex's thyroid and migraines.
+ */
+function conditions(): Condition[] {
+  const c = (id: string, personId: string, data: Omit<Condition, 'id' | 'personId' | 'createdAt' | 'by'> & Partial<Pick<Condition, 'by'>>): Condition => ({
+    id: `demo-condition-${id}`, personId, createdAt: CREATED, by: SAM, ...data,
+  });
+  return [
+    c('diabetes', RIA, { name: 'Type 2 diabetes', icd10: 'E11.9', specialty: 'endocrinology', status: 'managed', diagnosed: '2019-03', doctorId: GP, clinicId: GP, medIds: ['demo-med-metformin'], notes: 'Checked every three months.' }),
+    c('bp', RIA, { name: 'High blood pressure', icd10: 'I10', specialty: 'cardiology', status: 'active', diagnosed: '2021', severity: 'moderate', doctorId: GP, clinicId: HEART, medIds: ['demo-med-lisinopril'] }),
+    c('cholesterol', RIA, { name: 'High cholesterol', icd10: 'E78.5', specialty: 'endocrinology', status: 'managed', diagnosed: '2021', doctorId: GP, medIds: ['demo-med-atorvastatin'] }),
+    c('knee', RIA, { name: 'Osteoarthritis of the knee', icd10: 'M17.11', specialty: 'orthopedics', status: 'active', diagnosed: '2027-10', severity: 'mild', medIds: ['demo-med-paracetamol'] }),
+    c('cataract', RIA, { name: 'Cataract', icd10: 'H25.9', specialty: 'ophthalmology', status: 'active', diagnosed: '2030-11-04', clinicId: EYES }),
+    c('hayfever', NOOR, { name: 'Hay fever', icd10: 'J30.2', specialty: 'allergy', status: 'active', diagnosed: '2030', doctorId: PEDS, medIds: ['demo-med-cetirizine'], by: ALEX }),
+    c('ear', NOOR, { name: 'Middle ear infection', icd10: 'H66.90', specialty: 'ent', status: 'resolved', diagnosed: '2031-02', resolved: '2031-03', doctorId: PEDS, by: ALEX }),
+    c('thyroid', ALEX_P, { name: 'Underactive thyroid', icd10: 'E03.9', specialty: 'endocrinology', status: 'managed', diagnosed: '2026-06', place: 'Example Hospital', medIds: ['demo-med-levothyroxine'], by: ALEX }),
+    c('migraine', ALEX_P, { name: 'Migraine', icd10: 'G43.909', specialty: 'neurology', status: 'active', diagnosed: '2028', severity: 'mild', doctorId: NEURO, clinicId: NEURO, by: ALEX }),
   ];
 }
 
@@ -163,7 +191,7 @@ export const DEMO_HOME: HouseholdHome = { address: '12 Example Lane, Springfield
 
 export function demoData(): HealthData {
   const m = meds();
-  return { people: people(), photos: [], meds: m, doses: doses(m), visits: visits(), visitNotes: visitNotes(), contacts: contacts() };
+  return { people: people(), photos: [], meds: m, doses: doses(m), visits: visits(), visitNotes: visitNotes(), conditions: conditions(), contacts: contacts() };
 }
 
 export const DEMO_IDS = { RIA, NOOR, ALEX: ALEX_P };

@@ -9,6 +9,11 @@ import type { EventRule } from '@huishouden/pwa-kit/schedule';
 // and their notes, for admins and member carers only, in `visitNotes` (`@huishouden/pwa-kit/visit`).
 export type { FollowUp, Visit, VisitData, VisitInput, VisitKind, VisitNote, VisitNoteData, VisitStatus } from '@huishouden/pwa-kit/visit';
 
+// Conditions (diagnoses) by medical area are the kit's model too, shared with the household tools:
+// `healthPeople/{id}/conditions`, read only by admins, member carers and the person themself
+// (`@huishouden/pwa-kit/condition`).
+export type { Condition, ConditionData, ConditionInput, ConditionSeverity, ConditionStatus, PartialDate, Specialty } from '@huishouden/pwa-kit/condition';
+
 /** healthPeople/{personId}: someone the household gives medicine to, with or without an account. */
 export interface PersonData {
   name: string;

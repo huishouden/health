@@ -3,7 +3,8 @@ import { Printer, Share2, X } from 'lucide-react';
 import type { Contact } from '@huishouden/pwa-kit/contacts';
 import { ghostButton, primaryButton, secondaryButton } from '@huishouden/pwa-kit/react/ui';
 import { addDays, longDate, toYmd, ymdToTime } from '@huishouden/pwa-kit/time';
-import type { Dose, Med, Person } from '../lib/model';
+import type { Condition, Dose, Med, Person } from '../lib/model';
+import { groupBySpecialty, partialDateWords, specialtyLabel, type SpecialtyGroup } from '@huishouden/pwa-kit/condition';
 import { adherenceOf, doseText, isStopped, medLabel, scheduleText } from '../lib/meds';
 import { ageOn } from '../lib/people';
 import { roleLabel } from '../lib/contacts';
@@ -19,9 +20,11 @@ export interface ListModel {
   stopped: Med[];
   contacts: Contact[];
   adherence: number | null;
+  /** Active and managed conditions by medical area: only those the reader may see (none for a helper carer). */
+  conditions: SpecialtyGroup<Condition>[];
 }
 
-export function listModel(person: Person, meds: Med[], doses: Dose[], contacts: Contact[], now: number): ListModel {
+export function listModel(person: Person, meds: Med[], doses: Dose[], contacts: Contact[], now: number, conditions: readonly Condition[] = []): ListModel {
   const mine = meds.filter((m) => m.personId === person.id).sort((a, b) => Number(a.asNeeded) - Number(b.asNeeded) || compareText(medLabel(a), medLabel(b)));
   const since = addDays(toYmd(now), -STOPPED_DAYS);
   const current = mine.filter((m) => !isStopped(m, now));
@@ -35,7 +38,8 @@ export function listModel(person: Person, meds: Med[], doses: Dose[], contacts: 
     given += a.given;
     missed += a.missed;
   }
-  return { person, current, stopped, contacts: contacts.filter((c) => used.has(c.id)), adherence: given + missed ? Math.round((given / (given + missed)) * 100) : null };
+  const open = conditions.filter((c) => c.personId === person.id && c.status !== 'resolved');
+  return { person, current, stopped, contacts: contacts.filter((c) => used.has(c.id)), adherence: given + missed ? Math.round((given / (given + missed)) * 100) : null, conditions: groupBySpecialty(open) };
 }
 
 const contactName = (contacts: Contact[], id?: string) => (id ? contacts.find((c) => c.id === id)?.name ?? '' : '');
@@ -53,6 +57,12 @@ const bornText = (p: Person, today: string) => {
 /** "Dr. Hart (Doctor): (555) 010-2231". */
 const contactLine = (c: Contact) => `${c.name}${c.role ? ` (${roleLabel(c.role)})` : ''}${c.phone ? `: ${c.phone}` : ''}`;
 
+/** "Type 2 diabetes (since March 2019, managed)". */
+export const conditionLine = (c: Condition) => {
+  const bits = [c.diagnosed ? t('print.conditionSince', { date: partialDateWords(c.diagnosed) }) : '', c.status === 'managed' ? t('print.conditionManaged') : ''].filter(Boolean);
+  return bits.length ? `${c.name} (${bits.join(', ')})` : c.name;
+};
+
 /** The list as plain text, for sharing by message or email. */
 export function listText(l: ListModel, now: number): string {
   const today = toYmd(now);
@@ -60,6 +70,7 @@ export function listText(l: ListModel, now: number): string {
     t('print.title', { name: l.person.name }),
     [bornText(l.person, today), t('print.asOf', { date: longDate(today) })].filter(Boolean).join('. '),
     l.person.allergies ? t('today.allergies', { allergies: l.person.allergies }) : t('print.noAllergies'),
+    ...(l.conditions.length ? ['', t('print.conditions'), ...l.conditions.map((g) => `${specialtyLabel(g.specialty)}: ${g.conditions.map(conditionLine).join('; ')}`)] : []),
     '',
     ...l.current.map((m) => {
       const what = [doseText(m), scheduleText(m)].filter(Boolean).join(', ');
@@ -152,6 +163,19 @@ export function PrintList({ list, now, onClose }: { list: ListModel; now: number
         {[bornText(person, today), t('print.asOf', { date: longDate(today) })].filter(Boolean).join(' · ')}
       </p>
       <p className="mt-1 text-base font-medium text-ink">{person.allergies ? t('today.allergies', { allergies: person.allergies }) : t('print.noAllergies')}</p>
+      {list.conditions.length > 0 && (
+        <>
+          <h2 className="mt-5 text-lg font-semibold text-ink">{t('print.conditions')}</h2>
+          <dl className="mt-1 space-y-1 text-base">
+            {list.conditions.map((g) => (
+              <div key={g.specialty} className="break-inside-avoid sm:flex sm:gap-2">
+                <dt className="font-medium sm:w-56 sm:shrink-0">{specialtyLabel(g.specialty)}</dt>
+                <dd>{g.conditions.map(conditionLine).join('; ')}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
       {scheduled.length > 0 && (
         <>
           <h2 className="mt-5 text-lg font-semibold text-ink">{t('print.regular')}</h2>

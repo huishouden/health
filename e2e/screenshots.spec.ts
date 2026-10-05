@@ -15,6 +15,20 @@ test('medicines', ({ page }) =>
 test('visits', ({ page }) =>
   captureScreenshot(page, 'visits', { path: './?tab=visits', fixedTime, prepare: (p) => expect(p.getByRole('region', { name: 'Coming up' }).getByText('Diabetes check')).toBeVisible() }));
 
+test('conditions', ({ page }) =>
+  captureScreenshot(page, 'conditions', { path: './?tab=conditions&person=demo-person-ria', fixedTime, prepare: (p) => expect(p.getByText('Type 2 diabetes')).toBeVisible() }));
+
+test('conditions by medical area', async ({ page }) => {
+  await captureScreenshot(page, 'conditions-by-area', {
+    path: './?tab=conditions',
+    fixedTime,
+    prepare: async (p) => {
+      await p.getByRole('button', { name: 'By medical area' }).click();
+      await expect(p.getByRole('region', { name: "Everyone's conditions by medical area" })).toBeVisible();
+    },
+  });
+});
+
 test('history', ({ page }) =>
   captureScreenshot(page, 'history', { path: './?tab=history&person=demo-person-ria', fixedTime, prepare: (p) => expect(p.getByRole('region', { name: "Oma Ria's history" })).toBeVisible() }));
 
@@ -57,6 +71,11 @@ test('phone: today', async ({ page }) => {
 test('phone: visits', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await captureScreenshot(page, 'phone-visits', { path: './?tab=visits&person=demo-person-ria', fixedTime, prepare: (p) => expect(p.getByRole('region', { name: 'Coming up' }).getByText('Diabetes check')).toBeVisible() });
+});
+
+test('phone: conditions', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await captureScreenshot(page, 'phone-conditions', { path: './?tab=conditions&person=demo-person-alex', fixedTime, prepare: (p) => expect(p.getByText('Migraine')).toBeVisible() });
 });
 
 test('phone: medicines', async ({ page }) => {

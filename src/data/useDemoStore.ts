@@ -5,7 +5,7 @@ import { localIds } from '@huishouden/pwa-kit/store';
 import { useSampleStore } from '@huishouden/pwa-kit/react/store';
 import { DEMO_HELPER, DEMO_HOME, DEMO_MEMBERS, demoData, demoRole, type HealthData } from '../lib/demo';
 import { createActions, type Backend, type DataKey, type HealthStore } from './actions';
-import { canKeepNotes, canSee } from '../lib/people';
+import { canKeepNotes, canReadConditions, canSee } from '../lib/people';
 
 /**
  * Sample data kept in memory: the signed-out app is fully clickable, nothing is saved, and a reload
@@ -39,6 +39,7 @@ export function useDemoStore(clock: () => number): HealthStore {
     const people = data.people.filter((p) => canSee(p, role, me));
     const ids = new Set(people.map((p) => p.id));
     const keeps = new Set(people.filter((p) => canKeepNotes(p, role, me)).map((p) => p.id));
+    const diagnoses = new Set(people.filter((p) => canReadConditions(p, role, me)).map((p) => p.id));
     return {
       ...data,
       people,
@@ -46,6 +47,7 @@ export function useDemoStore(clock: () => number): HealthStore {
       doses: data.doses.filter((d) => ids.has(d.personId)),
       visits: data.visits.filter((v) => ids.has(v.personId)),
       visitNotes: data.visitNotes.filter((n) => keeps.has(n.personId)),
+      conditions: data.conditions.filter((c) => diagnoses.has(c.personId)),
       photos: data.photos.filter((p) => ids.has(p.id)),
     };
   }, [data, role, me]);
