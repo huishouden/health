@@ -84,7 +84,7 @@ export function useLiveStore(householdId: string, me: string, household: { membe
   }, [base, ids]);
 
   useEffect(
-    () => watchContacts(db, householdId, setContacts, { app: APP, restricted, onError: fail(() => t('live.contacts')) }),
+    () => watchContacts(db, householdId, setContacts, { app: APP, restricted, backfillPositions: true, onError: fail(() => t('live.contacts')) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [householdId, restricted],
   );
