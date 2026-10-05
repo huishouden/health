@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test": "bun test src",
-    "e2e": "playwright test e2e/smoke.spec.ts e2e/sample.spec.ts e2e/visits.spec.ts e2e/i18n.spec.ts",
+    "e2e": "playwright test e2e/smoke.spec.ts e2e/sample.spec.ts e2e/visits.spec.ts e2e/conditions.spec.ts e2e/i18n.spec.ts",
     "e2e:signed-in": "playwright test e2e/signed-in.spec.ts",
     "screenshots": "playwright test e2e/screenshots.spec.ts",
     "icons": "pwa-logo pill public/icon.svg && pwa-icons --background=#1b4332",
@@ -25,7 +25,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.103.0",
+    "@huishouden/pwa-kit": "https://github.com/huishouden/pwa-kit/releases/download/v0.106.0/pwa-kit-0.106.0.tgz",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/bun": "^1.4.2",

@@ -103,5 +103,16 @@ export const canMarkVisit = canSee;
 /** A visit's notes (what the doctor said): only the person's keepers read and write them. */
 export const canKeepNotes = canEdit;
 
+/**
+ * A person's conditions: admins and the members among their readers (their member carers, and the
+ * person themself when a member). Helper carers and kids never, not even the names, also when they
+ * are the person (huishouden/rules `conditionReader`: the person's `email` grants nothing, since a
+ * member carer writes it).
+ */
+export const canReadConditions = canEdit;
+
+/** Adding, changing and removing conditions, and linking visits to them: the same people. */
+export const canKeepConditions = canEdit;
+
 /** Told before a visit: the person's carers, else the person themself, else an admin; never kids (the kit's rule). */
 export const visitRecipients = (p: Pick<PersonData, 'carers' | 'email'>, h: HouseholdLike): string[] => kitVisitRecipients(p, h);

@@ -2,14 +2,15 @@ import type { Contact, ContactInput, ContactWrites } from '@huishouden/pwa-kit/c
 import { changes, stampFor, withoutId, type Backend as KitBackend, type Op as KitOp, type Undo } from '@huishouden/pwa-kit/store';
 import { track } from '@huishouden/pwa-kit/observability';
 import type { Role } from '@huishouden/pwa-kit/roles';
-import { visitDoc, visitMark, visitNoteDoc, visitUnmarked } from '@huishouden/pwa-kit/visit';
+import { VISIT_FIELDS, visitDoc, visitMark, visitNoteDoc, visitUnmarked } from '@huishouden/pwa-kit/visit';
+import { conditionDoc } from '@huishouden/pwa-kit/condition';
 import { doseDoc, medDoc, personDoc, type MedInput, type PersonInput } from '../lib/build';
 import type { HealthData } from '../lib/demo';
-import type { Dose, DoseStatus, Med, Person, PersonPhoto, Visit, VisitInput, VisitNote, VisitStatus } from '../lib/model';
+import type { Condition, ConditionInput, Dose, DoseStatus, Med, Person, PersonPhoto, Visit, VisitInput, VisitNote, VisitStatus } from '../lib/model';
 import { doseId } from '../lib/meds';
 
 /** The lists the actions write, by data key; the live backend turns them into paths under the person. */
-export type DataKey = 'people' | 'photos' | 'meds' | 'doses' | 'visits' | 'visitNotes';
+export type DataKey = 'people' | 'photos' | 'meds' | 'doses' | 'visits' | 'visitNotes' | 'conditions';
 export type Op = KitOp<DataKey>;
 
 /**
@@ -30,6 +31,7 @@ export interface PersonBundle {
   doses: Dose[];
   visits: Visit[];
   visitNotes: VisitNote[];
+  conditions: Condition[];
 }
 
 export interface MarkInput {
@@ -71,6 +73,13 @@ export interface HealthActions {
   markVisit(v: Visit, status: VisitStatus | null): Undo;
   /** The follow-up is booked elsewhere or not needed: its to-do goes. */
   followUpDone(v: Visit): Undo;
+  /**
+   * Adds or changes a condition; returns its id. `visitIds`, when given, are the person's visits
+   * about it: each is linked (`conditionId`) and any other visit linked to it is unlinked.
+   */
+  saveCondition(id: string | null, input: ConditionInput, visitIds?: readonly string[]): string;
+  /** Removes a condition and unlinks the visits about it; Undo puts both back. */
+  deleteCondition(c: Condition): Undo;
   saveContact(id: string | null, input: ContactInput): void;
   removeContact(c: Contact): void;
   restoreContact(c: Contact): void;
@@ -87,6 +96,17 @@ export interface HealthStore {
   household: { members: string[]; roles?: Record<string, Role> };
   /** Members' chosen names from their profiles, by email. */
   names?: ReadonlyMap<string, string>;
+}
+
+/** The visit with its condition link taken off: the whole document from `VISIT_FIELDS`, to write as a replace (a merge would keep it). */
+function unlinked(v: Visit, now: number): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of VISIT_FIELDS) {
+    if (k === 'conditionId') continue;
+    const value = (v as unknown as Record<string, unknown>)[k];
+    if (value !== undefined) out[k] = value;
+  }
+  return { ...out, updatedAt: now };
 }
 
 export function createActions(b: Backend): HealthActions {
@@ -110,9 +130,11 @@ export function createActions(b: Backend): HealthActions {
         doses: d.doses.filter((x) => x.personId === person.id),
         visits: d.visits.filter((x) => x.personId === person.id),
         visitNotes: d.visitNotes.filter((x) => x.personId === person.id),
+        conditions: d.conditions.filter((x) => x.personId === person.id),
       };
       // Children first: the rules read the person to allow removing what is under them.
       const ops: Op[] = [
+        ...bundle.conditions.map((x): Op => ({ col: 'conditions', id: x.id, data: null })),
         ...bundle.visitNotes.map((x): Op => ({ col: 'visitNotes', id: x.id, data: null })),
         ...bundle.visits.map((x): Op => ({ col: 'visits', id: x.id, data: null })),
         ...bundle.doses.map((x): Op => ({ col: 'doses', id: x.id, data: null })),
@@ -131,6 +153,7 @@ export function createActions(b: Backend): HealthActions {
         ...bundle.doses.map((x): Op => ({ col: 'doses', id: x.id, data: withoutId(x) })),
         ...bundle.visits.map((x): Op => ({ col: 'visits', id: x.id, data: withoutId(x) })),
         ...bundle.visitNotes.map((x): Op => ({ col: 'visitNotes', id: x.id, data: withoutId(x) })),
+        ...bundle.conditions.map((x): Op => ({ col: 'conditions', id: x.id, data: withoutId(x) })),
       ]);
     },
     savePhoto: (personId, dataUrl) => change([{ col: 'photos', id: personId, data: { data: dataUrl, updatedAt: b.now(), by: b.me } }]),
@@ -197,6 +220,28 @@ export function createActions(b: Backend): HealthActions {
       ]);
     },
     followUpDone: (v) => change([{ col: 'visits', id: v.id, data: { followUpDoneAt: b.now(), updatedAt: b.now() }, merge: true }]),
+    saveCondition: (id, input, visitIds) => {
+      const d = b.read();
+      const existing = id ? d.conditions.find((c) => c.id === id) : undefined;
+      const conditionId = id ?? b.newId('conditions');
+      const now = b.now();
+      const ops: Op[] = [{ col: 'conditions', id: conditionId, data: conditionDoc(input, stampFor(existing, b.me, now)) as unknown as Record<string, unknown> }];
+      if (visitIds) {
+        const want = new Set(visitIds);
+        for (const v of d.visits.filter((x) => x.personId === input.personId)) {
+          if (want.has(v.id) && v.conditionId !== conditionId) ops.push({ col: 'visits', id: v.id, data: { conditionId, updatedAt: now }, merge: true });
+          else if (!want.has(v.id) && v.conditionId === conditionId) ops.push({ col: 'visits', id: v.id, data: unlinked(v, now) });
+        }
+      }
+      change(ops);
+      if (!existing) track('add condition', { looked: !!input.icd10 });
+      return conditionId;
+    },
+    deleteCondition: (c) => {
+      const now = b.now();
+      const linked = b.read().visits.filter((v) => v.personId === c.personId && v.conditionId === c.id);
+      return change([...linked.map((v): Op => ({ col: 'visits', id: v.id, data: unlinked(v, now) })), { col: 'conditions', id: c.id, data: null }]);
+    },
     saveContact: (id, input) => b.contacts.save(id, input),
     removeContact: (c) => b.contacts.remove(c),
     restoreContact: (c) => b.contacts.restore(c),
