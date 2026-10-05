@@ -26,6 +26,8 @@ export default defineConfig({
       push: true,
       // Scan the label works offline once the reader has been used.
       ocr: true,
+      // Gallery → Share → Health opens Scan the label with that photo (Android).
+      shareTarget: { images: true },
       themeColor: '#1b4332',
       backgroundColor: '#faf9f5',
       includeAssets: ['icon.svg', 'apple-touch-icon.png', 'og.png'],

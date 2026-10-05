@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.0](https://github.com/huishouden/health/compare/v1.7.1...v1.8.0) (2026-10-05)
+
+### Features
+
+* **scan:** Scan the label takes a photo, a chosen photo, paste, drop and several; Share to Health (kit 0.99.0) ([962e0c0](https://github.com/huishouden/health/commit/962e0c00551c56ad4dc0d4a8852eabbf33906c3b))
+
+### Bug Fixes
+
+* **scan:** a viewer who may not add medicines is told so when a photo is shared ([4d7c8b4](https://github.com/huishouden/health/commit/4d7c8b4323a189ed92efbbf26feaad81aeb53c40))
+
 ## [1.7.1](https://github.com/huishouden/health/compare/v1.7.0...v1.7.1) (2026-10-05)
 
 ### Other
