@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.7.0](https://github.com/huishouden/health/compare/v1.6.2...v1.7.0) (2026-10-05)
+
+### Features
+
+* **reminders:** dose and refill reminders name the doses or the medicine, and stop unsent once the dose is marked given or skipped (on any carer's phone or the portal's To-do list) or the refill ordered (kit 0.98.2) ([6382317](https://github.com/huishouden/health/commit/638231789523575454e7ed1057f37b6c0aa949c9))
+
+### Other
+
+* role coverage and wording for reminder sources ([c27a3b4](https://github.com/huishouden/health/commit/c27a3b40544cd70dce3ac0553a7f58c3d58dcae3))
+* docs, review: reminders that stop once done elsewhere ([9c943d3](https://github.com/huishouden/health/commit/9c943d31544d7e527d0ce48230e6bb389a4c58ff))
+
 ## [1.6.2](https://github.com/huishouden/health/compare/v1.6.1...v1.6.2) (2026-10-05)
 
 ### Tests
