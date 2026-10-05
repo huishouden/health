@@ -97,8 +97,8 @@ export function todoItems(input: PublishInput): PersonalTodoInput[] {
         due: g.at,
         who: person.name,
         url: input.url(personPath(person)),
-        done: { label: t('dose.given'), ops: ops('given'), ...who },
-        cancel: { label: t('dose.skipped'), ops: ops('skipped'), ...who },
+        done: { label: t('publish.markGiven'), ops: ops('given'), ...who },
+        cancel: { label: t('publish.markSkipped'), ops: ops('skipped'), ...who },
         audience,
       });
     }
