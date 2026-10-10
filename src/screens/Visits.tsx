@@ -8,6 +8,7 @@ import { mapsSearchUrl, telHref } from '@huishouden/pwa-kit/places';
 import { formatDayShort, formatTime, monthShort, relativeDay, shortDate, toYmd } from '@huishouden/pwa-kit/time';
 import { capitalize, formatList } from '@huishouden/pwa-kit/i18n';
 import { followUpDay, followUpWords, leadWords, visitKindLabel, visitState, visitTitle, visitWhen } from '@huishouden/pwa-kit/visit';
+import { specialtyLabel } from '@huishouden/pwa-kit/condition';
 import type { Person, Visit } from '../lib/model';
 import { canAddVisit, canChangeVisit, canKeepNotes, canMarkVisit } from '../lib/people';
 import { nameFromHome } from '../lib/contacts';
@@ -175,7 +176,7 @@ export function Visits({ store, people, selected, onSelect, highlight, onAdd, on
                   <div className="min-w-0 flex-1">
                     <p className="text-base font-medium text-ink [overflow-wrap:anywhere]">{titleFor(v)}</p>
                     <p className="text-sm text-muted">
-                      {[capitalize(formatDayShort(v.at)), visitKindLabel(v.kind), state === 'attended' ? t('visits.wasAttended') : state === 'missed' ? t('visits.wasMissed') : t('visits.notMarked')].join(' · ')}
+                      {[capitalize(formatDayShort(v.at)), visitKindLabel(v.kind), v.specialty ? specialtyLabel(v.specialty) : '', data.conditions.find((c) => c.id === v.conditionId)?.name ?? '', state === 'attended' ? t('visits.wasAttended') : state === 'missed' ? t('visits.wasMissed') : t('visits.notMarked')].filter(Boolean).join(' · ')}
                     </p>
                     {note && <p className="mt-1 text-sm text-ink-soft [overflow-wrap:anywhere] whitespace-pre-line">{note}</p>}
                   </div>
@@ -231,6 +232,8 @@ function VisitRow({ visit: v, person, store, many, now, highlight, onEdit, onPri
   const editable = canChangeVisit(v, person, role, me);
   const title = visitTitle(v);
   const on = visitState(v, now) === 'now';
+  // The condition by name only for those who read it; the area is the visit's, for every reader.
+  const condition = v.conditionId ? data.conditions.find((c) => c.id === v.conditionId) : undefined;
   return (
     <li id={`visit-${v.id}`} className={`flex items-start gap-3 py-3 ${highlight ? 'rounded-xl bg-tint px-2' : ''}`}>
       <DateTile at={v.at} />
@@ -240,8 +243,9 @@ function VisitRow({ visit: v, person, store, many, now, highlight, onEdit, onPri
           {many && <span className="font-normal text-muted"> {t('today.forName', { name: person.name })}</span>}
         </p>
         <p className={`text-base ${on ? 'font-semibold text-ink' : 'text-ink-soft'}`}>
-          {[on ? t('visits.now') : whenWords(v, now), v.title ? visitKindLabel(v.kind) : ''].filter(Boolean).join(' · ')}
+          {[on ? t('visits.now') : whenWords(v, now), v.title ? visitKindLabel(v.kind) : '', v.specialty ? specialtyLabel(v.specialty) : ''].filter(Boolean).join(' · ')}
         </p>
+        {condition && <p className="text-base text-link">{t('visits.about', { condition: condition.name })}</p>}
         {contact && (
           <p className="flex flex-wrap items-center gap-x-3 text-base text-ink-soft">
             <span>{nameFromHome(contact, { home })}</span>

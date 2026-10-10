@@ -14,7 +14,9 @@ import type { HealthStore } from '../data/actions';
 import { Avatar, PersonChips } from '../components/Avatar';
 import { useT } from '../i18n';
 import { nameFromHome } from '../lib/contacts';
-import { capitalize, compareText, getLang } from '@huishouden/pwa-kit/i18n';
+import { conditionsByMed } from '../lib/conditions';
+import type { Condition } from '../lib/model';
+import { capitalize, compareText, formatList, getLang } from '@huishouden/pwa-kit/i18n';
 
 export interface MedicinesProps {
   store: HealthStore;
@@ -46,6 +48,8 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
   const { now } = useClock();
   if (people.length === 0) return <>{empty}</>;
   const shown = selected ? people.filter((p) => p.id === selected) : people;
+  // Only conditions this member may read are in the data (never a helper carer's).
+  const treats = conditionsByMed(store.data.conditions);
   return (
     <div className="space-y-4">
       <PersonChips people={people} selected={selected} onSelect={onSelect} />
@@ -74,7 +78,7 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
             ) : (
               <ul className="mt-3 divide-y divide-line">
                 {current.map((m) => (
-                  <MedRow key={m.id} med={m} store={store} person={p} highlight={highlight === m.id} onEdit={editable ? () => onEdit(m) : undefined} onCount={() => onCount(m)} onOrdered={() => onOrdered(m)} />
+                  <MedRow key={m.id} med={m} store={store} person={p} treats={treats.get(m.id) ?? []} highlight={highlight === m.id} onEdit={editable ? () => onEdit(m) : undefined} onCount={() => onCount(m)} onOrdered={() => onOrdered(m)} />
                 ))}
               </ul>
             )}
@@ -104,7 +108,7 @@ export function Medicines({ store, people, selected, onSelect, highlight, onAdd,
   );
 }
 
-function MedRow({ med: m, store, person, highlight, onEdit, onCount, onOrdered }: { med: Med; store: HealthStore; person: Person; highlight: boolean; onEdit?: () => void; onCount: () => void; onOrdered: () => void }) {
+function MedRow({ med: m, store, person, treats, highlight, onEdit, onCount, onOrdered }: { med: Med; store: HealthStore; person: Person; treats: Condition[]; highlight: boolean; onEdit?: () => void; onCount: () => void; onOrdered: () => void }) {
   const t = useT();
   const { now } = useClock();
   const home = useHome();
@@ -121,6 +125,7 @@ function MedRow({ med: m, store, person, highlight, onEdit, onCount, onOrdered }
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-40 flex-1">
           <p className="text-lg font-medium text-ink">{medLabel(m)}</p>
+          {treats.length > 0 && <p className="text-base text-link">{t('medicines.forCondition', { conditions: formatList(treats.map((c) => c.name)) })}</p>}
           <p className="text-base text-ink-soft">{[doseText(m), scheduleText(m)].filter(Boolean).join(' · ')}</p>
           <p className="text-sm text-muted">
             {[upcoming ? t('medicines.starts', { date: longDate(m.startDate, toYmd(now)) }) : '', m.endDate ? t('medicines.until', { date: longDate(m.endDate, toYmd(now)) }) : '', who].filter(Boolean).join(' · ')}

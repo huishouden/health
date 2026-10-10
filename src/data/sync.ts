@@ -22,8 +22,8 @@ const REFRESH_MS = 30 * 60_000;
  */
 export function useHealthSync(householdId: string, me: string, data: HealthData, ready: boolean, household: { members: string[]; roles?: Record<string, Role> }, role: Role | null) {
   useEffect(() => {
-    setSensitiveWords(APP, sensitiveWords(data.people, data.meds, data.visits));
-  }, [data.people, data.meds, data.visits]);
+    setSensitiveWords(APP, sensitiveWords(data.people, data.meds, data.visits, data.conditions));
+  }, [data.people, data.meds, data.visits, data.conditions]);
 
   const latest = useRef({ data, household });
   latest.current = { data, household };
