@@ -3,6 +3,7 @@ import { setLangForTests } from '@huishouden/pwa-kit/i18n';
 import { localizeAgenda } from '@huishouden/pwa-kit/agenda';
 import { localizeTodos } from '@huishouden/pwa-kit/todos';
 import { localizeReminders } from '@huishouden/pwa-kit/reminders';
+import { setReaderHousehold } from '@huishouden/pwa-kit/reader-langs';
 import { DEMO_HELPER, DEMO_MEMBERS, DEMO_NOW, demoData } from './demo';
 import { agendaItems, reminderItems, todoItems, type PublishInput } from './publish';
 import { scheduleText } from './meds';
@@ -29,14 +30,14 @@ describe('the portal stays name-free in every language', () => {
     expect(agenda.length).toBeGreaterThan(0);
     expect(todos.length).toBeGreaterThan(0);
     for (const i of [...agenda, ...todos]) {
-      expect(i.texts.es?.title).toBeTruthy();
-      expect(i.texts.nl?.title).toBeTruthy();
+      expect(i.texts?.es?.title).toBeTruthy();
+      expect(i.texts?.nl?.title).toBeTruthy();
       // Names only in calendarDetail, which the portal never shows.
       const { calendarDetail: _names, ...shown } = i as typeof i & { calendarDetail?: string };
       expect(leaks(JSON.stringify(shown))).toEqual([]);
     }
-    expect(agenda[0].texts.es?.title).toMatch(/^Medicamento para /);
-    expect(agenda[0].texts.nl?.title).toMatch(/^Medicijn voor /);
+    expect(agenda[0].texts?.es?.title).toMatch(/^Medicamento para /);
+    expect(agenda[0].texts?.nl?.title).toMatch(/^Medicijn voor /);
   });
 });
 
@@ -44,10 +45,27 @@ describe('dose reminders say the time the reader’s way', () => {
   test('"At 6 PM", "A las 6 p.m.", "Om 18:00", then the medicines', async () => {
     const reminders = await localizeReminders(() => reminderItems(input));
     const dose = reminders.find((r) => r.ref?.startsWith('health:dose:') && r.body?.includes('Metformin'))!;
-    expect(dose.texts.en?.body).toMatch(/^At 6 PM: Metformin/);
-    expect(dose.texts.es?.body).toMatch(/^A las 6 p\.m\.: Metformin .*con comida/);
-    expect(dose.texts.nl?.body).toMatch(/^Om 18:00: Metformin .*bij het eten/);
-    expect(dose.texts.en?.body).not.toContain('18:00');
+    // The writer's words are the reminder's own; texts carry the other languages.
+    expect(dose.body).toMatch(/^At 6 PM: Metformin/);
+    expect(dose.texts?.en).toBeUndefined();
+    expect(dose.texts?.es?.body).toMatch(/^A las 6 p\.m\.: Metformin .*con comida/);
+    expect(dose.texts?.nl?.body).toMatch(/^Om 18:00: Metformin .*bij het eten/);
+    expect(dose.body).not.toContain('18:00');
+  });
+
+  test("a household reading one language stores no texts; a Dutch carer's reminders add Dutch only", async () => {
+    try {
+      setReaderHousehold({ ...household, langs: { [SAM]: 'en', [ALEX]: 'en', [DEMO_HELPER]: 'en' } });
+      const one = await localizeReminders(() => reminderItems(input));
+      expect(one.every((r) => r.texts === undefined)).toBe(true);
+      setReaderHousehold({ ...household, langs: { [SAM]: 'en', [ALEX]: 'en', [DEMO_HELPER]: 'nl' } });
+      const two = await localizeReminders(() => reminderItems(input));
+      const helpers = two.filter((r) => Array.isArray(r.recipients) && r.recipients.includes(DEMO_HELPER));
+      expect(helpers.length).toBeGreaterThan(0);
+      for (const r of two) expect(Object.keys(r.texts ?? {})).toEqual(helpers.includes(r) ? ['nl'] : []);
+    } finally {
+      setReaderHousehold(null);
+    }
   });
 });
 
