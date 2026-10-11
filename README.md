@@ -119,9 +119,10 @@ writes for the rest of the suite names its audience, the household's admins and 
 Every device that can see a person keeps these current on open and a few seconds after each change
 (at once if the app is put away sooner), a week of reminders ahead, notifications first. Marking a
 dose removes its notifications before they are sent, also when it is marked on another phone or
-from the portal's To-do list; so does turning off a medicine's notifications, stopping it or
-removing it, even before any device has synced (the sender checks the dose and medicine records
-first). Ordering a refill drops its refill reminder.
+from the portal's To-do list; so does turning off a medicine's notifications or removing it, even
+before any device has synced (the sender checks the dose and medicine records first). Stopping a
+medicine clears its reminders from the next day on the same way; today, its last day, keeps its
+own. Ordering a refill drops its refill reminder.
 
 ## Data
 
