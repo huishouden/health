@@ -116,10 +116,13 @@ writes for the rest of the suite names its audience, the household's admins and 
 | Portal To-do (`personalTodos`) | A dose time not marked in the last 24 hours, with Given and Skipped; a medicine running low, with Ordered | "Not marked: 8 AM medicine for Oma Ria", "Refill a medicine for Oma Ria" |
 | Notifications (`personalReminders`, sent by [huishouden/notify](https://github.com/huishouden/notify)) | At each dose time to the main carer; if still not marked after the medicine's window (30 minutes unless changed), to the other carers; a week before a medicine runs out | The medicine's name, on the recipients' own devices |
 
-Every device that can see a person keeps these current on open and a few seconds after each change,
-a week of reminders ahead. Marking a dose removes its "not marked" notification before it is sent,
-also when it is marked on another phone or from the portal's To-do list (the sender checks the dose
-records first), and ordering a refill drops its refill reminder.
+Every device that can see a person keeps these current on open and a few seconds after each change
+(at once if the app is put away sooner), a week of reminders ahead, notifications first. Marking a
+dose removes its notifications before they are sent, also when it is marked on another phone or
+from the portal's To-do list; so does turning off a medicine's notifications or removing it, even
+before any device has synced (the sender checks the dose and medicine records first). Stopping a
+medicine clears its reminders from the next day on the same way; today, its last day, keeps its
+own. Ordering a refill drops its refill reminder.
 
 ## Data
 
