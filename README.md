@@ -150,7 +150,7 @@ person name it holds, each visit's title, place and what to bring, and each cond
 
 ```sh
 bun install
-bun run env:pull   # the Firebase web config from the repo variables, into .env.local
+bun run env:pull   # writes .env.local from the repo's STAGING_VITE_* variables (staging project, never production)
 bun run dev
 bun run lint && bun test src
 bun run build && bun run preview
