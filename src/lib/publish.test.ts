@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { DEMO_HELPER, DEMO_MEMBERS, DEMO_NOW, demoData } from './demo';
-import { agendaItems, refillSource, reminderItems, sensitiveWords, todoItems, type PublishInput } from './publish';
+import { agendaItems, dosesSource, refillSource, reminderItems, sensitiveWords, todoItems, type PublishInput } from './publish';
 import { todoOpsAllowed } from '@huishouden/pwa-kit/todos';
 import { readSource, sourceAllowed, sourceReads, stillDue } from '@huishouden/pwa-kit/reminder-source';
 import { personalReminderDoc } from '@huishouden/pwa-kit/reminders';
 import { SUITE_ORIGIN } from '@huishouden/pwa-kit/site';
+import { toYmd } from '@huishouden/pwa-kit/time';
+import { doseId } from './meds';
 
 const data = demoData();
 const [SAM, ALEX] = DEMO_MEMBERS;
@@ -74,6 +76,21 @@ describe('reminders', () => {
     expect(items.every((r) => r.at > DEMO_NOW)).toBe(true);
     // As-needed and reminders-off medicines never remind.
     expect(items.some((r) => (r.body ?? '').includes('Paracetamol'))).toBe(false);
+  });
+
+  test('reminders turned off on a medicine: no dose or late reminders for it', () => {
+    const off = (id: string): PublishInput => ({ ...input, meds: data.meds.map((m) => (m.id === id ? { ...m, remind: false } : m)) });
+    // Alex's only medicine: nothing at dose time, nothing late.
+    const alex = reminderItems(off('demo-med-levothyroxine')).filter((r) => /^health:(dose|late):demo-person-alex$/.test(r.ref ?? ''));
+    expect(alex).toEqual([]);
+    // Ria's metformin: gone from 8:00 (Lisinopril is still named) and the 6 PM time has no reminder at all.
+    const ria = reminderItems(off('demo-med-metformin')).filter((r) => /^health:(dose|late):demo-person-ria$/.test(r.ref ?? ''));
+    expect(ria.length).toBeGreaterThan(0);
+    expect(ria.some((r) => (r.body ?? '').includes('Metformin'))).toBe(false);
+    expect(ria.some((r) => new Date(r.at).getHours() === 18)).toBe(false);
+    expect(ria.some((r) => r.ref === 'health:late:demo-person-ria' && (r.body ?? '').includes('Lisinopril'))).toBe(true);
+    // Its refill reminder is about supply, not dose times: it stays.
+    expect(reminderItems(off('demo-med-metformin')).some((r) => r.ref === 'health:refill:demo-med-metformin')).toBe(true);
   });
 
   test('a week ahead, and the escalation only where a window is set', () => {
@@ -154,15 +171,17 @@ describe('the sender drops a reminder once it is done elsewhere', () => {
     const evening = items.find((r) => r.ref === 'health:dose:demo-person-ria' && new Date(r.at).getHours() === 18)!;
     const source = stored(evening);
     expect(source.any).toBe(true);
-    const docs = source.checks.map((c) => c.doc);
+    const docs = source.checks.filter((c) => 'absent' in c).map((c) => c.doc);
+    expect(docs.length).toBeGreaterThan(0);
     expect(docs.every((d) => d.startsWith('healthPeople/demo-person-ria/doses/'))).toBe(true);
+    const medsOn = new Map(source.checks.filter((c) => !('absent' in c)).map((c) => [c.doc, { remind: true }]));
     // The portal's "Mark given" for those doses writes exactly these records.
     const later = { ...input, now: evening.at + 3 * 3_600_000 };
     const todo = todoItems(later).find((t) => t.ref.startsWith('missed:demo-person-ria:') && t.due === evening.at)!;
     expect(todo.done!.ops.map((o) => `${o.col}/${o.id}`)).toEqual(docs);
-    const unmarked = new Map(docs.map((d) => [d, null]));
+    const unmarked = new Map<string, Record<string, unknown> | null>([...docs.map((d) => [d, null] as const), ...medsOn]);
     expect(stillDue(source, unmarked)).toBe(true);
-    expect(stillDue(source, new Map(docs.map((d) => [d, { status: 'given' }])))).toBe(false);
+    expect(stillDue(source, new Map<string, Record<string, unknown> | null>([...docs.map((d) => [d, { status: 'given' }] as const), ...medsOn]))).toBe(false);
     // Read with the person, whose readers decide whether the writer's source counts.
     const person = data.people.find((p) => p.id === 'demo-person-ria')!;
     expect(sourceReads('health', source)).toContain('healthPeople/demo-person-ria');
@@ -181,6 +200,46 @@ describe('the sender drops a reminder once it is done elsewhere', () => {
     // The late one for the other carers names the same doses.
     const late = items.find((r) => r.ref === 'health:late:demo-person-ria' && new Date(r.at).getHours() === 18)!;
     expect(stored(late)).toEqual(source);
+  });
+
+  test("dose and late reminders: due only while the dose's medicine still wants them", () => {
+    // Ria's 8:00 tomorrow: Lisinopril and Metformin, each its dose and its medicine.
+    const tomorrow8 = items.filter((r) => r.ref === 'health:dose:demo-person-ria' && new Date(r.at).getHours() === 8 && r.at > DEMO_NOW)[0]!;
+    const source = stored(tomorrow8);
+    expect(source.any).toBe(true);
+    const meds = ['demo-med-lisinopril', 'demo-med-metformin'];
+    const day = toYmd(tomorrow8.at);
+    const doseDoc = (m: string) => `healthPeople/demo-person-ria/doses/${doseId(m, `${day}T08:00`)}`;
+    const medDoc = (m: string) => `healthPeople/demo-person-ria/meds/${m}`;
+    expect(source.checks.map((c) => c.doc).sort()).toEqual(meds.flatMap((m) => [doseDoc(m), medDoc(m)]).sort());
+    const med = (id: string) => ({ ...data.meds.find((m) => m.id === id)! }) as Record<string, unknown>;
+    const read = (over: Record<string, Record<string, unknown> | null> = {}) =>
+      new Map<string, Record<string, unknown> | null>(Object.entries({ ...Object.fromEntries(meds.flatMap((m) => [[doseDoc(m), null], [medDoc(m), med(m)]])), ...over }));
+    expect(stillDue(source, read())).toBe(true);
+    // Reminders off on one: the other's dose keeps it due; marked too, it is deleted unsent.
+    const offLis = { [medDoc('demo-med-lisinopril')]: { ...med('demo-med-lisinopril'), remind: false } };
+    expect(stillDue(source, read(offLis))).toBe(true);
+    expect(stillDue(source, read({ ...offLis, [doseDoc('demo-med-metformin')]: { status: 'given' } }))).toBe(false);
+    // Off on both, or both stopped today (the day before the dose), or removed.
+    expect(stillDue(source, read({ ...offLis, [medDoc('demo-med-metformin')]: { ...med('demo-med-metformin'), remind: false } }))).toBe(false);
+    const stopped = (m: string) => ({ ...med(m), endDate: toYmd(DEMO_NOW) });
+    expect(stillDue(source, read({ [medDoc('demo-med-lisinopril')]: stopped('demo-med-lisinopril'), [medDoc('demo-med-metformin')]: stopped('demo-med-metformin') }))).toBe(false);
+    expect(stillDue(source, read({ [medDoc('demo-med-lisinopril')]: null, [medDoc('demo-med-metformin')]: null }))).toBe(false);
+    // Stopped with the dose's own day as the last: still due.
+    const last = (m: string) => ({ ...med(m), endDate: day });
+    expect(stillDue(source, read({ [medDoc('demo-med-lisinopril')]: last('demo-med-lisinopril'), [medDoc('demo-med-metformin')]: last('demo-med-metformin') }))).toBe(true);
+    // The late one for the other carers checks the same.
+    const late = items.find((r) => r.ref === 'health:late:demo-person-ria' && r.at === tomorrow8.at + 30 * 60_000)!;
+    expect(stored(late)).toEqual(source);
+  });
+
+  test('more doses at one time than fit in groups: only the doses are checked', () => {
+    const rows = Array.from({ length: 5 }, (_, i) => ({ med: { id: `m${i}` }, slot: { key: '2031-05-15T08:00' } }));
+    const source = dosesSource('p1', rows)!;
+    expect(source.checks.every((c) => 'absent' in c && c.group === undefined)).toBe(true);
+    expect(readSource('health', source)).toEqual(source);
+    expect(readSource('health', dosesSource('p1', rows.slice(0, 4)))!.checks).toHaveLength(8);
+    expect(dosesSource('p1', [...rows, ...rows])).toBeUndefined();
   });
 
   test('a refill reminder: due until a refill is ordered', () => {

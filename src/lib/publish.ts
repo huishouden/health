@@ -176,14 +176,34 @@ export const REMINDER_DAYS = 7;
 
 /**
  * What a dose-time reminder is about, for the shared sender to check before sending: the doses it
- * names, due while any of them is unmarked (its dose record, `doseId`, not yet written). Marked
- * given or skipped anywhere (another carer's phone, the portal's To-do list), it is deleted unsent.
- * None past `MAX_DOSES` at one time: the sender checks no more, and the reminder then always goes out.
+ * names, due while any of them is unmarked (its dose record, `doseId`, not yet written) and that
+ * dose's medicine still wants reminders: `remind` on, not stopped before the dose's day, not
+ * removed. Marked given or skipped anywhere (another carer's phone, the portal's To-do list), or
+ * reminders turned off on a device that closed before it synced, it is deleted unsent. Each dose
+ * and its medicine are one group (pwa-kit `ReminderSource`), two checks; past `MAX_DOSES / 2` doses
+ * at one time only the doses are checked, and past `MAX_DOSES` nothing: the sender checks no more,
+ * and the reminder then always goes out.
  */
 export function dosesSource(personId: string, rows: readonly { med: Pick<Med, 'id'>; slot: { key: string } }[]): ReminderSource | undefined {
   if (rows.length === 0 || rows.length > MAX_DOSES) return undefined;
-  return { checks: rows.map((r) => ({ doc: `${dosesCol(personId)}/${doseId(r.med.id, r.slot.key)}`, absent: true as const })), any: true };
+  const unmarked = (r: (typeof rows)[number]) => ({ doc: `${dosesCol(personId)}/${doseId(r.med.id, r.slot.key)}`, absent: true as const });
+  if (rows.length * 2 > MAX_DOSES) return { checks: rows.map(unmarked), any: true };
+  return {
+    checks: rows.flatMap((r, group) => {
+      const day = r.slot.key.slice(0, 10);
+      // Stopped (`endDate`, the last day) on any day the reminder could have been written before its own.
+      const stoppedBefore = Array.from({ length: STOPPED_DAYS }, (_, i) => addDays(day, -1 - i));
+      return [
+        { ...unmarked(r), group },
+        { doc: `${medsCol(personId)}/${r.med.id}`, due: [{ field: 'remind', in: [true] }, { field: 'endDate', notIn: stoppedBefore }], group },
+      ];
+    }),
+    any: true,
+  };
 }
+
+/** The days before a dose's own on which stopping its medicine ends its reminder: every day it may have been written on. */
+const STOPPED_DAYS = Math.min(REMINDER_DAYS + 1, REMINDER_SOURCE_LIMITS.values);
 
 /** What a refill reminder is about: the medicine, until a refill is ordered (`refillOrderedAt` changes). */
 export const refillSource = (personId: string, med: Pick<Med, 'id' | 'refillOrderedAt'>): ReminderSource => ({
