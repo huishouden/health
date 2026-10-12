@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { DEMO_NOW, demoData } from './demo';
-import { byTime, dailyUse, dayRows, daysLeft, doseId, guardFor, lowOn, nextDose, refillDue, scheduleText, supplyLeft, adherenceOf, rateText } from './meds';
+import { byTime, dailyUse, doseWindowStart, MAX_DOSE_DAYS, dayRows, daysLeft, doseId, guardFor, lowOn, nextDose, refillDue, scheduleText, supplyLeft, adherenceOf, rateText } from './meds';
 import type { Med } from './model';
 
 const data = demoData();
@@ -58,5 +58,27 @@ describe('history', () => {
     expect(a.missed).toBe(3);
     expect(rateText(a)).toBe('95%');
     expect(doseId('m1', '2031-05-14T08:00')).toBe('m1_2031-05-14T0800');
+  });
+});
+
+describe('which doses are read', () => {
+  const NOW = new Date(2031, 4, 14, 10, 30).getTime();
+  const DAY = 86_400_000;
+  const startOfDay = (t: number) => new Date(new Date(t).setHours(0, 0, 0, 0)).getTime();
+  const base = { createdAt: NOW - 200 * DAY };
+  test('a month when no supply is counted, or it was counted within the month', () => {
+    const month = new Date(2031, 3, 14).getTime();
+    expect(doseWindowStart([], NOW)).toBe(month);
+    expect(doseWindowStart([base, { ...base, supply: 30, supplyAt: NOW - 5 * DAY }], NOW)).toBe(month);
+  });
+  test('back to the oldest supply count (its day), or the medicine\'s start when never counted since', () => {
+    expect(doseWindowStart([{ ...base, supply: 30, supplyAt: NOW - 90 * DAY }, { ...base, supply: 10, supplyAt: NOW - 40 * DAY }], NOW)).toBe(startOfDay(NOW - 90 * DAY));
+    expect(doseWindowStart([{ ...base, supply: 30 }], NOW)).toBe(startOfDay(NOW - 200 * DAY));
+  });
+  test("a stopped medicine's old count doesn't widen it", () => {
+    expect(doseWindowStart([{ ...base, supply: 30, supplyAt: NOW - 200 * DAY, endDate: '2031-05-01' }], NOW)).toBe(new Date(2031, 3, 14).getTime());
+  });
+  test(`never more than ${MAX_DOSE_DAYS} days`, () => {
+    expect(doseWindowStart([{ createdAt: NOW - 900 * DAY, supply: 30 }], NOW)).toBe(new Date(2030, 3, 9).getTime());
   });
 });

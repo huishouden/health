@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
-import { PERSONAL_AGENDA, toAgendaItem } from '@huishouden/pwa-kit/agenda';
-import { toVisit, visitNoteDoc } from '@huishouden/pwa-kit/visit';
+import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { toVisit } from '@huishouden/pwa-kit/visit';
 import { CONDITIONS, toCondition } from '@huishouden/pwa-kit/condition';
 import { commitOps } from '@huishouden/pwa-kit/firestore';
 import { householdContacts, watchContacts } from '@huishouden/pwa-kit/contacts';
@@ -9,19 +8,17 @@ import { householdRole, isRestricted, type Role } from '@huishouden/pwa-kit/role
 import { readError } from '@huishouden/pwa-kit/feedback';
 import { reportError } from '@huishouden/pwa-kit/observability';
 import { watchProfiles } from '@huishouden/pwa-kit/household';
-import { DAY } from '@huishouden/pwa-kit/time';
 import { emptyData, type HealthData } from '../lib/demo';
 import type { Condition, Dose, Med, Person, PersonPhoto, Visit, VisitNote } from '../lib/model';
 import { canKeepNotes, canReadConditions } from '../lib/people';
-import { fromAssistantItem } from '../lib/visits';
+import { doseWindowStart } from '../lib/meds';
+import { planListeners } from '../lib/listeners';
 import { APP } from '../lib/publish';
 import { db } from './firebase';
 import { createActions, type Backend, type HealthStore, type Op } from './actions';
 import { useHealthSync } from './sync';
+import { moveAssistantVisits } from './assistant-visits';
 import { t } from '../i18n';
-
-/** How far back the dose history reads: a year, for the doctor's list and adherence. */
-const DOSE_HISTORY_DAYS = 400;
 
 type PersonParts = { meds?: Med[]; doses?: Dose[]; visits?: Visit[]; visitNotes?: VisitNote[]; conditions?: Condition[]; photo?: PersonPhoto | null };
 
@@ -76,11 +73,6 @@ export function useLiveStore(householdId: string, me: string, household: { membe
           (e) => (set(pid, { meds: [] }), fail(() => t('live.meds'))(e)),
         ),
         onSnapshot(
-          query(collection(db, under, 'doses'), where('at', '>=', Date.now() - DOSE_HISTORY_DAYS * DAY)),
-          (s) => set(pid, { doses: s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Dose, 'id'>), personId: pid })) }),
-          (e) => (set(pid, { doses: [] }), fail(() => t('live.doses'))(e)),
-        ),
-        onSnapshot(
           collection(db, under, 'visits'),
           (s) => set(pid, { visits: s.docs.map((d) => toVisit(d.id, d.data(), pid)) }),
           (e) => (set(pid, { visits: [] }), fail(() => t('live.visits'))(e)),
@@ -95,6 +87,44 @@ export function useLiveStore(householdId: string, me: string, household: { membe
     return () => unsubs.forEach((u) => u());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, ids]);
+
+  // Each person's doses from `doseWindowStart` (a month, or back to an old supply count), once their
+  // medicines are in. A person's listener starts again only when their window moves (a day passes,
+  // a supply is counted); the others keep theirs, so nobody's doses are read twice for it.
+  const windows = (people ?? []).flatMap((p) => (parts[p.id]?.meds ? [`${p.id}@${doseWindowStart(parts[p.id]!.meds!, Date.now())}`] : [])).join('|');
+  const doseListeners = useRef(new Map<string, { key: string; stop: () => void }>());
+  useEffect(() => {
+    const live = doseListeners.current;
+    // Keyed with the household too: another household's person of the same id starts afresh.
+    const from = new Map<string, number>();
+    const wanted = new Map<string, string>();
+    for (const w of windows ? windows.split('|') : []) {
+      const at = w.lastIndexOf('@');
+      from.set(w.slice(0, at), Number(w.slice(at + 1)));
+      wanted.set(w.slice(0, at), `${base}/${w}`);
+    }
+    const plan = planListeners(new Map([...live].map(([pid, l]) => [pid, l.key])), wanted);
+    for (const pid of plan.stop) {
+      live.get(pid)?.stop();
+      live.delete(pid);
+    }
+    for (const pid of plan.start) {
+      const stop = onSnapshot(
+        query(collection(db, `${base}/healthPeople/${pid}`, 'doses'), where('at', '>=', from.get(pid)!)),
+        (s) => setParts((all) => ({ ...all, [pid]: { ...all[pid], doses: s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Dose, 'id'>), personId: pid })) } })),
+        (e) => (setParts((all) => ({ ...all, [pid]: { ...all[pid], doses: [] } })), fail(() => t('live.doses'))(e)),
+      );
+      live.set(pid, { key: wanted.get(pid)!, stop });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, windows]);
+  useEffect(() => {
+    const live = doseListeners.current;
+    return () => {
+      for (const l of live.values()) l.stop();
+      live.clear();
+    };
+  }, []);
 
   useEffect(() => {
     if (!keeps) return;
@@ -201,22 +231,6 @@ function useAssistantVisits(base: string, me: string, ready: boolean, data: Heal
   useEffect(() => {
     if (!ready || done.current || (role !== 'admin' && role !== 'member')) return;
     done.current = true;
-    void (async () => {
-      const snap = await getDocs(query(collection(db, base, PERSONAL_AGENDA), where('app', '==', 'assistant'), where('audience', 'array-contains', me)));
-      const d = latest.current;
-      const ops: { col: string; id: string; data: Record<string, unknown> | null }[] = [];
-      for (const doc of snap.docs) {
-        const moved = fromAssistantItem(toAgendaItem(doc.id, doc.data()), me);
-        const person = moved && d.people.find((p) => p.id === moved.visit.personId);
-        if (!moved || !person || !canKeepNotes(person, role, me)) continue;
-        if (!d.visits.some((v) => v.id === moved.visit.id)) {
-          const { id, ...visit } = moved.visit;
-          ops.push({ col: `healthPeople/${person.id}/visits`, id, data: visit as unknown as Record<string, unknown> });
-          if (moved.notes) ops.push({ col: `healthPeople/${person.id}/visitNotes`, id, data: { ...visitNoteDoc(person.id, moved.notes, me, Date.now()), via: 'assistant' } });
-        }
-        ops.push({ col: PERSONAL_AGENDA, id: doc.id, data: null });
-      }
-      if (ops.length) await commitOps(db, base, ops);
-    })().catch((e) => reportError(e, { where: 'move assistant visits' }));
+    moveAssistantVisits(db, base, me, role, () => latest.current, Date.now()).catch((e) => reportError(e, { where: 'move assistant visits' }));
   }, [base, me, ready, role]);
 }
