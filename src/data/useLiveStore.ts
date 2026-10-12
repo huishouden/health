@@ -12,6 +12,7 @@ import { emptyData, type HealthData } from '../lib/demo';
 import type { Condition, Dose, Med, Person, PersonPhoto, Visit, VisitNote } from '../lib/model';
 import { canKeepNotes, canReadConditions } from '../lib/people';
 import { doseWindowStart } from '../lib/meds';
+import { planListeners } from '../lib/listeners';
 import { APP } from '../lib/publish';
 import { db } from './firebase';
 import { createActions, type Backend, type HealthStore, type Op } from './actions';
@@ -95,21 +96,25 @@ export function useLiveStore(householdId: string, me: string, household: { membe
   useEffect(() => {
     const live = doseListeners.current;
     // Keyed with the household too: another household's person of the same id starts afresh.
-    const wanted = new Map(windows ? windows.split('|').map((w) => [w.slice(0, w.lastIndexOf('@')), `${base}/${w}`] as const) : []);
-    for (const [pid, l] of live) {
-      if (wanted.get(pid) === l.key) continue;
-      l.stop();
+    const from = new Map<string, number>();
+    const wanted = new Map<string, string>();
+    for (const w of windows ? windows.split('|') : []) {
+      const at = w.lastIndexOf('@');
+      from.set(w.slice(0, at), Number(w.slice(at + 1)));
+      wanted.set(w.slice(0, at), `${base}/${w}`);
+    }
+    const plan = planListeners(new Map([...live].map(([pid, l]) => [pid, l.key])), wanted);
+    for (const pid of plan.stop) {
+      live.get(pid)?.stop();
       live.delete(pid);
     }
-    for (const [pid, key] of wanted) {
-      if (live.has(pid)) continue;
-      const from = Number(key.slice(key.lastIndexOf('@') + 1));
+    for (const pid of plan.start) {
       const stop = onSnapshot(
-        query(collection(db, `${base}/healthPeople/${pid}`, 'doses'), where('at', '>=', from)),
+        query(collection(db, `${base}/healthPeople/${pid}`, 'doses'), where('at', '>=', from.get(pid)!)),
         (s) => setParts((all) => ({ ...all, [pid]: { ...all[pid], doses: s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Dose, 'id'>), personId: pid })) } })),
         (e) => (setParts((all) => ({ ...all, [pid]: { ...all[pid], doses: [] } })), fail(() => t('live.doses'))(e)),
       );
-      live.set(pid, { key, stop });
+      live.set(pid, { key: wanted.get(pid)!, stop });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, windows]);
@@ -226,6 +231,6 @@ function useAssistantVisits(base: string, me: string, ready: boolean, data: Heal
   useEffect(() => {
     if (!ready || done.current || (role !== 'admin' && role !== 'member')) return;
     done.current = true;
-    moveAssistantVisits(db, base, me, role, () => latest.current).catch((e) => reportError(e, { where: 'move assistant visits' }));
+    moveAssistantVisits(db, base, me, role, () => latest.current, Date.now()).catch((e) => reportError(e, { where: 'move assistant visits' }));
   }, [base, me, ready, role]);
 }

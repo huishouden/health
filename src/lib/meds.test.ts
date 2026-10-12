@@ -75,6 +75,9 @@ describe('which doses are read', () => {
     expect(doseWindowStart([{ ...base, supply: 30, supplyAt: NOW - 90 * DAY }, { ...base, supply: 10, supplyAt: NOW - 40 * DAY }], NOW)).toBe(startOfDay(NOW - 90 * DAY));
     expect(doseWindowStart([{ ...base, supply: 30 }], NOW)).toBe(startOfDay(NOW - 200 * DAY));
   });
+  test("a stopped medicine's old count doesn't widen it", () => {
+    expect(doseWindowStart([{ ...base, supply: 30, supplyAt: NOW - 200 * DAY, endDate: '2031-05-01' }], NOW)).toBe(new Date(2031, 3, 14).getTime());
+  });
   test(`never more than ${MAX_DOSE_DAYS} days`, () => {
     expect(doseWindowStart([{ createdAt: NOW - 900 * DAY, supply: 30 }], NOW)).toBe(new Date(2030, 3, 9).getTime());
   });

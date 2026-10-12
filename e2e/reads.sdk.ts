@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from 'bun:test';
 import { deleteApp, initializeApp, type FirebaseApp } from 'firebase/app';
 import { expectReads, readCounter, writeBeforeEachRead } from '@huishouden/pwa-kit/read-test';
-import { e2eProject, e2eTarget, seedTestHousehold, testHousehold, writeTestDocs, type TestHousehold } from '@huishouden/pwa-kit/staging';
+import { e2eProject, e2eTarget, getTestDoc, seedTestHousehold, testHousehold, writeTestDocs, type TestHousehold } from '@huishouden/pwa-kit/staging';
 import { personalAgendaDoc, PERSONAL_AGENDA } from '@huishouden/pwa-kit/agenda';
 import { personalReminderDoc, PERSONAL_REMINDERS } from '@huishouden/pwa-kit/reminders';
 import { personalTodoDoc, PERSONAL_TODOS } from '@huishouden/pwa-kit/todos';
@@ -115,14 +115,15 @@ describe.skipIf(!emulator)("moving the assistant's old appointments: one query o
 
   test('two to move, then nothing left', async () => {
     await writeTestDocs(hh, { ...item('a1'), ...item('a2') });
-    const { value } = await expectReads(() => moveAssistantVisits(db, `households/${hh.id}`, admin, 'admin', data), { max: 2, min: 2, counter, label: 'assistant visits' });
+    const { value } = await expectReads(() => moveAssistantVisits(db, `households/${hh.id}`, admin, 'admin', data, NOW), { max: 2, min: 2, counter, label: 'assistant visits' });
     expect(value).toBe(2);
-    await expectReads(() => moveAssistantVisits(db, `households/${hh.id}`, admin, 'admin', data), { max: 1, min: 1, counter, label: 'assistant visits, none left' });
+    for (const id of ['a1', 'a2']) expect(await getTestDoc(hh, `healthPeople/gran/visits/${id}`)).toMatchObject({ personId: 'gran' });
+    await expectReads(() => moveAssistantVisits(db, `households/${hh.id}`, admin, 'admin', data, NOW), { max: 1, min: 1, counter, label: 'assistant visits, none left' });
   });
 
   test('interleaving: one more lands before its read; read once and moved with the rest', async () => {
     await writeTestDocs(hh, item('b1'));
-    const { value } = await expectReads(() => moveAssistantVisits(db, `households/${hh.id}`, admin, 'admin', data), {
+    const { value } = await expectReads(() => moveAssistantVisits(db, `households/${hh.id}`, admin, 'admin', data, NOW), {
       max: 2,
       min: 2,
       counter,
@@ -130,5 +131,9 @@ describe.skipIf(!emulator)("moving the assistant's old appointments: one query o
       beforeRead: writeBeforeEachRead(() => writeTestDocs(hh, item('b2'))),
     });
     expect(value).toBe(2);
+    for (const id of ['b1', 'b2']) {
+      expect(await getTestDoc(hh, `healthPeople/gran/visits/${id}`)).toMatchObject({ personId: 'gran' });
+      expect(await getTestDoc(hh, `${PERSONAL_AGENDA}/${id}`)).toBeNull();
+    }
   });
 });

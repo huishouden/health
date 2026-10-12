@@ -153,14 +153,15 @@ export const MAX_DOSE_DAYS = 400;
 
 /**
  * From when a person's doses are read (the start of a local day, so it stays the same all day): the
- * last `RECENT_DOSE_DAYS` days, or back to the oldest supply count among their medicines when one is
- * older (`supplyLeft` counts the doses given since), never more than `MAX_DOSE_DAYS`. Every dose
+ * last `RECENT_DOSE_DAYS` days, or back to the oldest supply count among their current medicines when
+ * one is older (`supplyLeft` counts the doses given since), never more than `MAX_DOSE_DAYS`. Every dose
  * read is billed on each open, so a person with no old count costs a month of doses, not a year.
  */
-export function doseWindowStart(meds: readonly Pick<Med, 'supply' | 'supplyAt' | 'createdAt'>[], now: number): number {
+export function doseWindowStart(meds: readonly Pick<Med, 'supply' | 'supplyAt' | 'createdAt' | 'endDate'>[], now: number): number {
   const today = toYmd(now);
   const recent = ymdToTime(addDays(today, -(RECENT_DOSE_DAYS - 1)));
-  const counted = meds.filter((m) => m.supply !== undefined).map((m) => m.supplyAt ?? m.createdAt);
+  // A stopped medicine's supply is never shown or used (refills, the Medicines list, the publish).
+  const counted = meds.filter((m) => m.supply !== undefined && !isStopped(m, now)).map((m) => m.supplyAt ?? m.createdAt);
   const oldest = counted.length ? ymdToTime(toYmd(Math.min(...counted))) : recent;
   return Math.max(ymdToTime(addDays(today, -MAX_DOSE_DAYS)), Math.min(recent, oldest));
 }
