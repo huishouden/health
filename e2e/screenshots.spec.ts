@@ -1,11 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { captureScreenshot } from '@huishouden/pwa-kit/e2e';
+import { captureOpening, captureScreenshot } from '@huishouden/pwa-kit/e2e';
 
 // README images of the signed-out app's invented sample household, refreshed by CI after each
 // deploy. The clock is frozen at the sample's moment so every run renders the same.
 const fixedTime = '2031-05-14T10:30:00';
 const needsDoing = (p: import('@playwright/test').Page) => expect(p.getByRole('region', { name: 'Needs doing' }).getByText('Metformin 500 mg')).toBeVisible();
+
+// The frame while the app opens (the session restoring), held there: the kit's AppOpening.
+test('opening', ({ page }) => captureOpening(page, 'opening', { path: './?tab=medicines', fixedTime }));
 
 test('today', ({ page }) => captureScreenshot(page, 'today', { fixedTime, prepare: needsDoing }));
 

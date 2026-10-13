@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CalendarCheck, CalendarClock, History as HistoryIcon, Pill, Stethoscope, Users } from 'lucide-react';
 import { isImported, type CalendarMatch } from '@huishouden/pwa-kit/calendar';
 import { CalendarImportDialog, CalendarSuggestions, calendarAvailable, useCalendarSearch, useCalendarSuggestions } from '@huishouden/pwa-kit/react/calendar';
 import { atTime, toHhmm } from '@huishouden/pwa-kit/time';
@@ -8,8 +7,9 @@ import type { User } from 'firebase/auth';
 import type { Contact } from '@huishouden/pwa-kit/contacts';
 import { ContactDialog } from '@huishouden/pwa-kit/react/contacts';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
-import { cardClass, primaryButton, ScreenSkeleton, Toast, type ToastState } from '@huishouden/pwa-kit/react/ui';
-import { useUrlParam, useUrlTab } from '@huishouden/pwa-kit/react/url-state';
+import { cardClass, primaryButton, Toast, type ToastState } from '@huishouden/pwa-kit/react/ui';
+import { useUrlParam } from '@huishouden/pwa-kit/react/url-state';
+import { AppFrame, AppOpening } from '@huishouden/pwa-kit/react/frame';
 import { personName } from '@huishouden/pwa-kit/people';
 import { clearSharedImages, readSharedImages } from '@huishouden/pwa-kit/shared-images';
 import { toYmd } from '@huishouden/pwa-kit/time';
@@ -24,8 +24,7 @@ import { useT } from './i18n';
 import { canAddPeople, canAddVisit, canChangeVisit, canEdit, canKeepConditions, canKeepNotes, canReadConditions } from './lib/people';
 import type { HealthStore } from './data/actions';
 import { auth } from './data/firebase';
-import { Frame } from './components/Frame';
-import { Header, type Tab } from './components/Header';
+import { healthFrame, useHealthTab, type Account, type TabId } from './components/healthFrame';
 import { Photos } from './components/Avatar';
 import { PersonDialog } from './components/PersonDialog';
 import { MedDialog } from './components/MedDialog';
@@ -39,29 +38,11 @@ import { Conditions } from './screens/Conditions';
 import { ConditionDialog } from './components/ConditionDialog';
 import { compareText } from '@huishouden/pwa-kit/i18n';
 
-/** The tabs, in order: the one list the type, the address (`useUrlTab`) and the content follow. */
-export const TAB_IDS = ['today', 'medicines', 'visits', 'conditions', 'history', 'people'] as const;
-export type TabId = (typeof TAB_IDS)[number];
-
-// The phone's bottom bar: Today, Medicines, Visits, History; Conditions and People under More.
-// Conditions only for those who read someone's (helper carers and kids never see the tab).
-export const tabs = (t: ReturnType<typeof useT>, conditions: boolean): Tab[] => [
-  { id: 'today', label: t('tab.today'), icon: CalendarCheck, primary: true },
-  { id: 'medicines', label: t('tab.medicines'), icon: Pill, primary: true },
-  { id: 'visits', label: t('tab.visits'), icon: CalendarClock, primary: true },
-  ...(conditions ? [{ id: 'conditions', label: t('tab.conditions'), icon: Stethoscope }] : []),
-  { id: 'history', label: t('tab.history'), icon: HistoryIcon, primary: true },
-  { id: 'people', label: t('tab.people'), icon: Users },
-];
-
 export { CONTACT_ROLES } from './lib/contacts';
 
-interface Props {
+interface Props extends Omit<Account, 'user'> {
   store: HealthStore;
   user: User | null;
-  onSignIn: () => void;
-  onSignOut: () => void;
-  signingIn: boolean;
   toast: ToastState | null;
   notify: (message: string, undo?: () => void) => void;
   clearToast: () => void;
@@ -81,7 +62,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const { data, actions, role, me } = store;
   // The tab, the person, the visit and the printed list live in the address, so a reload (an update)
   // and Back return to them. A tab is a history entry; picking a person refines it in place.
-  const [tab, setTab] = useUrlTab(TAB_IDS, 'today');
+  const [tab, setTab] = useHealthTab();
   const [selected, setPerson] = useUrlParam('person');
   const [highlight] = useState<string | null>(() => param('med'));
   const [shownVisit] = useUrlParam('visit');
@@ -205,9 +186,13 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   );
 
   const printPerson = printFor ? personOf(printFor) : undefined;
+  const account = { user, onSignIn, onSignOut, signingIn };
+  // The first data still on its way: the opening frame, which counts no view yet; the Conditions tab
+  // only when the address is on it, as while the session restored.
+  if (!store.ready) return <AppOpening {...healthFrame(t, account, { id: tab, conditions: tab === 'conditions', choose: (id) => chooseTab(id) })} phase="data" />;
+
   let content: ReactNode;
-  if (!store.ready) content = <ScreenSkeleton label={t('app.loading')} />;
-  else if (printPerson) content = <PrintList list={listModel(printPerson, data.meds, data.doses, data.contacts, now, data.conditions)} now={now} onClose={() => print(null)} />;
+  if (printPerson) content = <PrintList list={listModel(printPerson, data.meds, data.doses, data.contacts, now, data.conditions)} now={now} onClose={() => print(null)} />;
   else if (tab === 'medicines')
     content = (
       <Medicines
@@ -322,18 +307,8 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const conditionPerson = conditionDialog ? personOf(conditionDialog.personId) : undefined;
   const dosePerson = doseDialog ? personOf(doseDialog.target.med.personId) : undefined;
 
-  return (
-    <Photos.Provider value={photos}>
-      <Frame
-        header={<Header tabs={tabs(t, readsConditions)} tab={tab === 'conditions' && !readsConditions ? 'today' : tab} onTab={(id) => chooseTab(id as TabId)} user={user} onSignIn={onSignIn} onSignOut={onSignOut} signingIn={signingIn} />}
-        main={
-          <>
-            {banner && <div className="print:hidden">{banner}</div>}
-            {content}
-          </>
-        }
-      >
-
+  const dialogs = (
+    <>
         {personDialog && (
           <PersonDialog
             person={personDialog.person}
@@ -480,7 +455,18 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         <div className="print:hidden">
           <Toast toast={toast} onDone={clearToast} />
         </div>
-      </Frame>
+    </>
+  );
+
+  return (
+    <Photos.Provider value={photos}>
+      <AppFrame
+        {...healthFrame(t, account, { id: tab === 'conditions' && !readsConditions ? 'today' : tab, conditions: readsConditions, choose: (id) => chooseTab(id) })}
+        after={dialogs}
+      >
+        {banner && <div className="print:hidden">{banner}</div>}
+        {content}
+      </AppFrame>
     </Photos.Provider>
   );
 }
