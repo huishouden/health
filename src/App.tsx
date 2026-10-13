@@ -10,6 +10,7 @@ import { ClockProvider } from '@huishouden/pwa-kit/react/clock';
 import { HealthApp, TAB_IDS, tabs, type TabId } from './HealthApp';
 import { useUrlTab } from '@huishouden/pwa-kit/react/url-state';
 import { Header } from './components/Header';
+import { Frame } from './components/Frame';
 import { cardClass, primaryButton, SampleBanner, ScreenSkeleton, useToast } from '@huishouden/pwa-kit/react/ui';
 import { PORTAL_URL } from './lib/portal';
 import { t, useT } from './i18n';
@@ -144,23 +145,16 @@ function DemoInner({ read, signInError, ...frame }: FrameProps & { read: () => n
 function Opening({ user, label, ...frame }: FrameProps & { user: User | null | undefined; label?: string }) {
   const t = useT();
   const [tab, setTab] = useUrlTab(TAB_IDS, 'today');
+  // Who may read conditions is known only once the data arrives: the tab shows here only when the
+  // address is on it, so it never appears and then vanishes for someone who can't see it.
   return (
-    <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased">
-      <Header tabs={tabs(t, tab === 'conditions')} tab={tab} onTab={(id) => setTab(id as TabId)} user={user} {...frame} opening />
-      <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6">
-        <ScreenSkeleton label={label ?? t('app.loading')} />
-      </main>
-    </div>
+    <Frame
+      header={<Header tabs={tabs(t, tab === 'conditions')} tab={tab} onTab={(id) => setTab(id as TabId)} user={user} {...frame} opening />}
+      main={<ScreenSkeleton label={label ?? t('app.loading')} />}
+    />
   );
 }
 
 function Plain({ user, children, ...frame }: FrameProps & { user: User | null; children?: ReactNode }) {
-  return (
-    <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased">
-      <Header tabs={[]} tab="" onTab={() => {}} user={user} {...frame} />
-      <main className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6">
-        {children && <div className={`${cardClass} max-w-2xl p-6 text-lg text-muted`}>{children}</div>}
-      </main>
-    </div>
-  );
+  return <Frame header={<Header tabs={[]} tab="" onTab={() => {}} user={user} {...frame} />} main={children && <div className={`${cardClass} max-w-2xl p-6 text-lg text-muted`}>{children}</div>} />;
 }
