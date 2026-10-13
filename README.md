@@ -47,9 +47,9 @@ Installable on the tablet, phones and laptops, and works offline (changes sync w
 |---|---|
 | ![One person's conditions by medical area: each with its status, when and by whom it was diagnosed, where, the medicines that treat it and the visit about it](docs/screenshots/conditions.png) | ![A parent's conditions on a phone, under Endocrinology and Neurology](docs/screenshots/phone-conditions.png) |
 
-| The household by medical area | |
+| The household by medical area | Opening |
 |---|---|
-| ![Everyone's conditions grouped by medical area, each saying whose it is](docs/screenshots/conditions-by-area.png) | |
+| ![Everyone's conditions grouped by medical area, each saying whose it is](docs/screenshots/conditions-by-area.png) | ![While Health opens: the app bar and tabs already in place over a placeholder, so nothing moves when the medicines arrive](docs/screenshots/opening.png) |
 
 | History | People |
 |---|---|
