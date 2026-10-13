@@ -8,7 +8,8 @@ import type { User } from 'firebase/auth';
 import type { Contact } from '@huishouden/pwa-kit/contacts';
 import { ContactDialog } from '@huishouden/pwa-kit/react/contacts';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
-import { cardClass, primaryButton, Toast, type ToastState } from '@huishouden/pwa-kit/react/ui';
+import { cardClass, primaryButton, ScreenSkeleton, Toast, type ToastState } from '@huishouden/pwa-kit/react/ui';
+import { useUrlParam, useUrlTab } from '@huishouden/pwa-kit/react/url-state';
 import { personName } from '@huishouden/pwa-kit/people';
 import { clearSharedImages, readSharedImages } from '@huishouden/pwa-kit/shared-images';
 import { toYmd } from '@huishouden/pwa-kit/time';
@@ -23,6 +24,7 @@ import { useT } from './i18n';
 import { canAddPeople, canAddVisit, canChangeVisit, canEdit, canKeepConditions, canKeepNotes, canReadConditions } from './lib/people';
 import type { HealthStore } from './data/actions';
 import { auth } from './data/firebase';
+import { Frame } from './components/Frame';
 import { Header, type Tab } from './components/Header';
 import { Photos } from './components/Avatar';
 import { PersonDialog } from './components/PersonDialog';
@@ -37,11 +39,13 @@ import { Conditions } from './screens/Conditions';
 import { ConditionDialog } from './components/ConditionDialog';
 import { compareText } from '@huishouden/pwa-kit/i18n';
 
-export type TabId = 'today' | 'medicines' | 'visits' | 'conditions' | 'history' | 'people';
+/** The tabs, in order: the one list the type, the address (`useUrlTab`) and the content follow. */
+export const TAB_IDS = ['today', 'medicines', 'visits', 'conditions', 'history', 'people'] as const;
+export type TabId = (typeof TAB_IDS)[number];
 
 // The phone's bottom bar: Today, Medicines, Visits, History; Conditions and People under More.
 // Conditions only for those who read someone's (helper carers and kids never see the tab).
-const tabs = (t: ReturnType<typeof useT>, conditions: boolean): Tab[] => [
+export const tabs = (t: ReturnType<typeof useT>, conditions: boolean): Tab[] => [
   { id: 'today', label: t('tab.today'), icon: CalendarCheck, primary: true },
   { id: 'medicines', label: t('tab.medicines'), icon: Pill, primary: true },
   { id: 'visits', label: t('tab.visits'), icon: CalendarClock, primary: true },
@@ -49,7 +53,6 @@ const tabs = (t: ReturnType<typeof useT>, conditions: boolean): Tab[] => [
   { id: 'history', label: t('tab.history'), icon: HistoryIcon, primary: true },
   { id: 'people', label: t('tab.people'), icon: Users },
 ];
-const TAB_IDS: readonly TabId[] = ['today', 'medicines', 'visits', 'conditions', 'history', 'people'];
 
 export { CONTACT_ROLES } from './lib/contacts';
 
@@ -70,20 +73,18 @@ type Target = { med: Med; slot?: string; slotAt?: number };
 
 const param = (k: string) => new URLSearchParams(location.search).get(k);
 
-function initialTab(): TabId {
-  const t = param('tab');
-  return TAB_IDS.some((x) => x === t) ? (t as TabId) : 'today';
-}
 
 /** Everything inside the frame once there is data to show (live or sample). */
 export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, notify, clearToast, banner, deviceSettings }: Props) {
   const t = useT();
   const { now } = useClock();
   const { data, actions, role, me } = store;
-  const [tab, setTab] = useState<TabId>(initialTab);
-  const [selected, setSelected] = useState<string | null>(() => param('person'));
+  // The tab, the person, the visit and the printed list live in the address, so a reload (an update)
+  // and Back return to them. A tab is a history entry; picking a person refines it in place.
+  const [tab, setTab] = useUrlTab(TAB_IDS, 'today');
+  const [selected, setPerson] = useUrlParam('person');
   const [highlight] = useState<string | null>(() => param('med'));
-  const [shownVisit, setShownVisit] = useState<string | null>(() => param('visit'));
+  const [shownVisit] = useUrlParam('visit');
   const [shownCondition] = useState<string | null>(() => param('condition'));
   const [conditionDialog, setConditionDialog] = useState<{ condition: Condition | null; personId: string } | null>(null);
   const [visitDialog, setVisitDialog] = useState<{ visit: Visit | null; draft?: VisitDraft } | null>(null);
@@ -97,7 +98,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const [doseDialog, setDoseDialog] = useState<{ target: Target; warning?: string | null; initial?: 'given' | 'skipped' } | null>(null);
   const [count, setCount] = useState<Med | null>(null);
   const [contact, setContact] = useState<{ contact: Contact | null; role?: string } | null>(null);
-  const [printFor, setPrintFor] = useState<string | null>(() => param('print'));
+  const [printFor, setPrint] = useUrlParam('print');
 
   useEffect(() => {
     document.title = t('app.documentTitle');
@@ -161,31 +162,15 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
       return;
     }
     setSharedImages(null);
-    setTab('medicines');
-    setSelected(person.id);
+    chooseTab('medicines', { person: person.id });
     setMedDialog({ med: null, personId: person.id, images: sharedImages });
   }, [sharedImages, people, selected, role, me, notify, t]);
 
-  const setUrl = (changes: Record<string, string | null>) => {
-    const url = new URL(location.href);
-    for (const [k, v] of Object.entries(changes)) {
-      if (v === null) url.searchParams.delete(k);
-      else url.searchParams.set(k, v);
-    }
-    history.replaceState(null, '', url);
-  };
-  const chooseTab = (id: TabId) => {
-    setTab(id);
-    setUrl({ tab: id === 'today' ? null : id, med: null, visit: null, condition: null });
-  };
-  const choosePerson = (id: string | null) => {
-    setSelected(id);
-    setUrl({ person: id });
-  };
-  const print = (id: string | null) => {
-    setPrintFor(id);
-    setUrl({ print: id });
-  };
+  // A new tab leaves the last one's deep link (`?med=`, `?visit=`, `?condition=`) and the printed list behind.
+  const chooseTab = (id: TabId, also: Record<string, string | null> = {}) => setTab(id, { also: { med: null, visit: null, condition: null, print: null, ...also } });
+  // Picking a person or the printed list refines the screen in place: Back leaves the tab, not each pick.
+  const choosePerson = (id: string | null) => setPerson(id, { replace: true });
+  const print = (id: string | null) => setPrint(id, { replace: true });
 
   const mark = (target: Target, status: 'given' | 'skipped', at = now, note = '') => {
     const p = personOf(target.med.personId);
@@ -221,7 +206,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
 
   const printPerson = printFor ? personOf(printFor) : undefined;
   let content: ReactNode;
-  if (!store.ready) content = <p className="p-2 text-lg text-muted">{t('app.loading')}</p>;
+  if (!store.ready) content = <ScreenSkeleton label={t('app.loading')} />;
   else if (printPerson) content = <PrintList list={listModel(printPerson, data.meds, data.doses, data.contacts, now, data.conditions)} now={now} onClose={() => print(null)} />;
   else if (tab === 'medicines')
     content = (
@@ -297,12 +282,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         highlight={shownCondition}
         onAdd={(personId) => setConditionDialog({ condition: null, personId })}
         onEdit={(c) => setConditionDialog({ condition: c, personId: c.personId })}
-        onShowVisit={(id, visitId) => {
-          choosePerson(id);
-          chooseTab('visits');
-          setUrl({ visit: visitId });
-          setShownVisit(visitId);
-        }}
+        onShowVisit={(id, visitId) => chooseTab('visits', { person: id, visit: visitId })}
         empty={empty}
       />
     );
@@ -332,16 +312,8 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         onMark={onMark}
         onOther={(t) => setDoseDialog({ target: t })}
         onUnmark={(d) => notify(t('toast.unmarked'), actions.unmarkDoses([d]))}
-        onShowMeds={(id) => {
-          choosePerson(id);
-          chooseTab('medicines');
-        }}
-        onShowVisit={(id, visitId) => {
-          choosePerson(id);
-          chooseTab('visits');
-          setUrl({ visit: visitId });
-          setShownVisit(visitId);
-        }}
+        onShowMeds={(id) => chooseTab('medicines', { person: id })}
+        onShowVisit={(id, visitId) => chooseTab('visits', { person: id, visit: visitId })}
         empty={empty}
       />
     );
@@ -352,14 +324,15 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
 
   return (
     <Photos.Provider value={photos}>
-      <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased print:bg-white">
-        <div className="print:hidden">
-          <Header tabs={tabs(t, readsConditions)} tab={tab === 'conditions' && !readsConditions ? 'today' : tab} onTab={(id) => (print(null), chooseTab(id as TabId))} user={user} onSignIn={onSignIn} onSignOut={onSignOut} signingIn={signingIn} />
-        </div>
-        <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6 print:p-0">
-          {banner && <div className="print:hidden">{banner}</div>}
-          {content}
-        </main>
+      <Frame
+        header={<Header tabs={tabs(t, readsConditions)} tab={tab === 'conditions' && !readsConditions ? 'today' : tab} onTab={(id) => chooseTab(id as TabId)} user={user} onSignIn={onSignIn} onSignOut={onSignOut} signingIn={signingIn} />}
+        main={
+          <>
+            {banner && <div className="print:hidden">{banner}</div>}
+            {content}
+          </>
+        }
+      >
 
         {personDialog && (
           <PersonDialog
@@ -507,7 +480,7 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
         <div className="print:hidden">
           <Toast toast={toast} onDone={clearToast} />
         </div>
-      </div>
+      </Frame>
     </Photos.Provider>
   );
 }

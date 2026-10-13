@@ -17,17 +17,19 @@ interface Props {
   onSignIn: () => void;
   onSignOut: () => void;
   signingIn?: boolean;
+  /** The frame while the app opens: no tab view counted yet (the app's own Header counts it). */
+  opening?: boolean;
 }
 
 const VERSION = `${import.meta.env.VITE_APP_VERSION} (${import.meta.env.VITE_BUILD_SHA})`;
 
 /** The kit's Huishouden app bar with Health's sections as its tabs. */
-export function Header({ tabs, tab, onTab, user, onSignIn, onSignOut, signingIn }: Props) {
+export function Header({ tabs, tab, onTab, user, onSignIn, onSignOut, signingIn, opening }: Props) {
   const t = useT();
   // Counts which tabs are used (anonymous, per visit; see the portal's /privacy page).
   useEffect(() => {
-    trackView(tab);
-  }, [tab]);
+    if (!opening) trackView(tab);
+  }, [tab, opening]);
   return (
     <AppBar app={t('app.name')} glyph="pill" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
       <SectionTabs tabs={tabs} tab={tab} onTab={onTab} />
