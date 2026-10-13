@@ -1,6 +1,7 @@
 import { CalendarCheck, CalendarClock, History as HistoryIcon, Pill, Stethoscope, Users } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { AppOpening, type AppFrameProps, type OpeningPhase } from '@huishouden/pwa-kit/react/frame';
+import { trackView } from '@huishouden/pwa-kit/observability';
 import type { Tab } from '@huishouden/pwa-kit/react/ui';
 import { useUrlTab } from '@huishouden/pwa-kit/react/url-state';
 import { PORTAL_URL } from '../lib/portal';
@@ -50,6 +51,7 @@ export function healthFrame(
     portalUrl: PORTAL_URL,
     version: VERSION,
     ...account,
+    onView: trackView,
     layout: 'page',
     className: 'print:bg-white',
     mainClassName: 'print:p-0',
