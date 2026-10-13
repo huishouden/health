@@ -189,7 +189,8 @@ export function HealthApp({ store, user, onSignIn, onSignOut, signingIn, toast, 
   const account = { user, onSignIn, onSignOut, signingIn };
   // The first data still on its way: the opening frame, which counts no view yet; the Conditions tab
   // only when the address is on it, as while the session restored.
-  if (!store.ready) return <AppOpening {...healthFrame(t, account, { id: tab, conditions: tab === 'conditions', choose: (id) => chooseTab(id) })} phase="data" />;
+  // The toast stays mounted: a first load that fails says so there.
+  if (!store.ready) return <AppOpening {...healthFrame(t, account, { id: tab, conditions: tab === 'conditions', choose: (id) => chooseTab(id) })} phase="data" after={<Toast toast={toast} onDone={clearToast} />} />;
 
   let content: ReactNode;
   if (printPerson) content = <PrintList list={listModel(printPerson, data.meds, data.doses, data.contacts, now, data.conditions)} now={now} onClose={() => print(null)} />;
