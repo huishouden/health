@@ -24,7 +24,7 @@ import { useT } from './i18n';
 import { canAddPeople, canAddVisit, canChangeVisit, canEdit, canKeepConditions, canKeepNotes, canReadConditions } from './lib/people';
 import type { HealthStore } from './data/actions';
 import { auth } from './data/firebase';
-import { healthFrame, useHealthTab, type TabId } from './components/healthFrame';
+import { healthFrame, useHealthTab, type Account, type TabId } from './components/healthFrame';
 import { Photos } from './components/Avatar';
 import { PersonDialog } from './components/PersonDialog';
 import { MedDialog } from './components/MedDialog';
@@ -40,12 +40,9 @@ import { compareText } from '@huishouden/pwa-kit/i18n';
 
 export { CONTACT_ROLES } from './lib/contacts';
 
-interface Props {
+interface Props extends Omit<Account, 'user'> {
   store: HealthStore;
   user: User | null;
-  onSignIn: () => void;
-  onSignOut: () => void;
-  signingIn: boolean;
   toast: ToastState | null;
   notify: (message: string, undo?: () => void) => void;
   clearToast: () => void;

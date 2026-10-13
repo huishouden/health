@@ -9,7 +9,7 @@ import { DEMO_NOW } from './lib/demo';
 import { ClockProvider } from '@huishouden/pwa-kit/react/clock';
 import { HealthApp } from './HealthApp';
 import { AppFrame } from '@huishouden/pwa-kit/react/frame';
-import { HealthOpening, healthFrame } from './components/healthFrame';
+import { HealthOpening, healthFrame, type Account } from './components/healthFrame';
 import { cardClass, primaryButton, SampleBanner, useToast } from '@huishouden/pwa-kit/react/ui';
 import { PORTAL_URL } from './lib/portal';
 import { t, useT } from './i18n';
@@ -48,11 +48,7 @@ export default function App() {
   return <SignedIn key={user.uid} user={user} {...frame} />;
 }
 
-interface FrameProps {
-  onSignIn: () => void;
-  onSignOut: () => void;
-  signingIn: boolean;
-}
+type FrameProps = Omit<Account, 'user'>;
 
 function SignedIn({ user, ...frame }: FrameProps & { user: User }) {
   const t = useT();
