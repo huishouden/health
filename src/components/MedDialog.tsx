@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CircleStop, Play, Trash2, X } from 'lucide-react';
 import type { Contact } from '@huishouden/pwa-kit/contacts';
-import { doseTimes, everyDaysOf, type ParsedCourse } from '@huishouden/pwa-kit/dose';
+import { doseTimes, everyDaysOf, routeWords, type ParsedCourse } from '@huishouden/pwa-kit/dose';
 import { LabelScan, type LabelFill } from '@huishouden/pwa-kit/react/dose';
 import { RulePicker } from '@huishouden/pwa-kit/react/schedule';
 import { Checkbox, Chip, deleteButton, Dialog, Field, ghostButton, inputClass, primaryButton, selectClass } from '@huishouden/pwa-kit/react/ui';
@@ -104,7 +104,7 @@ export function MedDialog({ med, person, contacts, now, images, onSave, onStop, 
       setEndDate(last);
       filled.push({ label: t('medDialog.lastDay'), value: t('medDialog.afterDays', { count: parsed.days }) });
     }
-    const extra = [parsed.route && parsed.route !== 'by mouth' ? parsed.route.replace(/^./, (c) => c.toUpperCase()) : '', ...parsed.notes].filter(Boolean).join('. ');
+    const extra = [parsed.route && parsed.route !== 'by mouth' ? routeWords(parsed.route) : '', ...parsed.notes].filter(Boolean).join('. ');
     if (extra) {
       setNotes((n) => (n ? `${n}\n${extra}` : extra).slice(0, LIMITS.notes));
       filled.push({ label: t('common.notes'), value: extra });
@@ -203,7 +203,7 @@ export function MedDialog({ med, person, contacts, now, images, onSave, onStop, 
           save();
         }}
       >
-        {!med && <LabelScan onRead={fill} images={images} />}
+        {!med && <LabelScan onRead={fill} onStrength={(s) => setStrength(s.slice(0, LIMITS.strength))} images={images} />}
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label={t('history.medicine')}>
             <input className={inputClass} value={name} maxLength={LIMITS.medName} onChange={(e) => setName(e.target.value)} placeholder="Lisinopril" autoComplete="off" /* i18n-ignore: a medicine name */ />
