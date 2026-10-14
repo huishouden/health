@@ -99,7 +99,11 @@ _Screenshots of the live site signed out, which shows an invented household date
 - **The assistant's appointments**: added before Health had visits, they were calendar items only; a
   keeper's device moves each into a visit (same id, the notes apart) the next time Health opens.
 - **Scan the label** (`@huishouden/pwa-kit/react/dose` `LabelScan`): read on the device, never
-  uploaded or kept. The form shows what was filled in, what to check, and the lines read but not used. A label photo can also be shared into Health from the phone's gallery (Share, then Health): it opens in a new medicine for the person on screen, or the first one you can edit; someone who can't add medicines is told so.
+  uploaded or kept; when the label shows an NDC, only that code is looked up in the FDA's public
+  list, and its name, strength and form are used when they agree with what was read (the card says
+  so). The form shows what was filled in, what to check, and the lines read but not used. When the
+  strength can't be read and the medicine's strengths are known, they are offered to pick from; a
+  route the label names ("In the eye") goes into Notes in the person's language. A label photo can also be shared into Health from the phone's gallery (Share, then Health): it opens in a new medicine for the person on screen, or the first one you can edit; someone who can't add medicines is told so.
 
 ## Reminders, the portal and privacy
 
@@ -147,7 +151,7 @@ Rules and their emulator tests: [huishouden/rules](https://github.com/huishouden
 
 What the suite sends to its error and usage reports is described on the portal's
 [Privacy](https://huishouden-piekstra.web.app/privacy) page. Health also registers every medicine and
-person name it holds, each visit's title, place and what to bring, and each condition's name and place, with the kit's `setSensitiveWords`, so none of them can reach a report. Looking a condition up sends only the words typed to the U.S. National Library of Medicine (no referrer, no account, no name); the portal's Privacy page lists it.
+person name it holds, each visit's title, place and what to bring, and each condition's name and place, with the kit's `setSensitiveWords`, so none of them can reach a report. Looking a condition up sends only the words typed to the U.S. National Library of Medicine (no referrer, no account, no name), and scanning a label sends only its NDC code to the FDA's public NDC list (no photo, no name, no account); the portal's Privacy page lists both.
 
 ## Development
 
